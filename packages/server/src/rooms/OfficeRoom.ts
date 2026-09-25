@@ -4,8 +4,7 @@ import { Agent, Office, OfficeConfig, ConversationMessage } from '@agent-office/
 import { OllamaAdapter } from '@agent-office/adapters';
 import { ToolExecutor } from '../tools/ToolExecutor';
 import { MemoryStore } from '../memory/MemoryStore';
-
-const AGENT_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
+import { AGENT_MODEL, OLLAMA_URL } from '../config';
 
 interface HighlightEvent {
     type: string;
@@ -32,7 +31,7 @@ export class OfficeRoom extends Room<OfficeState> {
     private demoTickCount = 0;
     private coreAgents: Map<string, Agent> = new Map();
     private thinkingLocks: Map<string, boolean> = new Map();
-    private ollamaAdapter = new OllamaAdapter('http://localhost:11434');
+    private ollamaAdapter = new OllamaAdapter(OLLAMA_URL);
     private hireCount = 0; // Counter for generating unique IDs
     private toolExecutor = new ToolExecutor();
     private memoryStore = new MemoryStore();
@@ -75,6 +74,29 @@ export class OfficeRoom extends Room<OfficeState> {
         return this.gymSpots[Math.max(0, index) % this.gymSpots.length];
     }
 
+    private busyAgents: Set<string> = new Set();
+
+    startAgentJob(agentId: string, task: string, announcement: string) {
+        const coreAgent = this.coreAgents.get(agentId);
+        const agentState = this.state.agents.get(agentId);
+        if (!coreAgent || !agentState) return;
+        this.busyAgents.add(agentId);
+        coreAgent.currentTask = task;
+        agentState.currentTask = task;
+        agentState.action = 'work';
+        this.broadcast('chat', { sender: coreAgent.config.name, text: announcement });
+    }
+
+    finishAgentJob(agentId: string, announcement: string) {
+        const coreAgent = this.coreAgents.get(agentId);
+        const agentState = this.state.agents.get(agentId);
+        if (!coreAgent || !agentState) return;
+        this.busyAgents.delete(agentId);
+        coreAgent.currentTask = '';
+        agentState.currentTask = '';
+        this.broadcast('chat', { sender: coreAgent.config.name, text: announcement });
+    }
+
     static getActiveRoom(): OfficeRoom | null {
         return OfficeRoom.activeRoom;
     }
@@ -97,7 +119,7 @@ export class OfficeRoom extends Room<OfficeState> {
         this.office = new Office(config);
 
         // Setup Core Agents with AI capabilities
-        const setupCoreAgent = async (id: string, name: string, role: string, x: number, y: number) => {
+        const setupCoreAgent = async (id: string, name: string, role: string, job: string, x: number, y: number) => {
             this.state.createAgent(id, name);
             const state = this.state.agents.get(id);
             if (state) { state.x = x; state.y = y; }
@@ -107,7 +129,7 @@ export class OfficeRoom extends Room<OfficeState> {
                 inference: {
                     provider: 'ollama',
                     model: AGENT_MODEL,
-                    systemPrompt: `You are ${name}, a ${role} in a virtual office. Be social, do your work, and collaborate with colleagues. Keep thoughts SHORT.`,
+                    systemPrompt: `You are ${name}, the ${role} in a virtual office. ${job} Be social, do your work, and collaborate with colleagues. Keep thoughts SHORT.`,
                 },
                 personality: {
                     traits: { openness: 0.8, conscientiousness: 0.9, extraversion: 0.6, agreeableness: 0.7, neuroticism: 0.1 },
@@ -139,8 +161,8 @@ export class OfficeRoom extends Room<OfficeState> {
             this.thinkingLocks.set(id, false);
         };
 
-        await setupCoreAgent('sia', 'Sia', 'Engineer', 10, 10);
-        await setupCoreAgent('karl', 'Karl', 'Product Manager', 20, 15);
+        await setupCoreAgent('sia', 'Sia', 'Lead Researcher', 'You build LinkedIn Sales Navigator searches that find founders and senior executives with deep expertise but low visibility.', 10, 10);
+        await setupCoreAgent('karl', 'Karl', 'Outreach Writer', 'You screen leads and draft warm LinkedIn connection notes and follow-up messages for a confidence and presence coaching program.', 20, 15);
         this.rebuildRelationshipGraph();
         const savedLayout = await this.memoryStore.loadLayout('default');
         this.currentLayout = Array.isArray(savedLayout) ? savedLayout : [];
@@ -255,6 +277,9 @@ export class OfficeRoom extends Room<OfficeState> {
                     recentMessages: coreAgent.getUnreadMessages(),
                     memories: coreAgent.getRecentMemories(5)
                 }).then(async (decision) => {
+                    if (this.busyAgents.has(id) && decision.action === 'workout') {
+                        decision.action = 'work';
+                    }
                     const previousAction = agentState.action;
                     agentState.action = decision.action;
 

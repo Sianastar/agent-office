@@ -16,6 +16,7 @@ export interface CompletionRequest {
     tools?: ToolDefinition[];
     temperature?: number;
     maxTokens?: number;
+    format?: 'json';
 }
 
 export interface CompletionResponse {

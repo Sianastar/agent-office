@@ -9,6 +9,7 @@ import { HighlightsFeed } from './components/HighlightsFeed';
 import { AgentPulseBoard } from './components/AgentPulseBoard';
 import { RelationshipGraph } from './components/RelationshipGraph';
 import { EpisodeRecapPanel } from './components/EpisodeRecapPanel';
+import { OutreachStudio } from './components/OutreachStudio';
 
 export function App() {
     return (
@@ -19,7 +20,7 @@ export function App() {
             </div>
             <ChatPanel />
             <TaskBoard />
-            <AgentInspector agent={{ name: 'Sia', role: 'Engineer', status: 'Idle', currentTask: 'Write Scaffold' }} />
+            <AgentInspector agent={{ name: 'Sia', role: 'Lead Researcher', status: 'Idle', currentTask: 'Write Scaffold' }} />
             <LayoutEditor />
             <SystemLog />
             <ViralControlPanel />
@@ -27,6 +28,7 @@ export function App() {
             <HighlightsFeed />
             <AgentPulseBoard />
             <EpisodeRecapPanel />
+            <OutreachStudio />
         </>
     );
 }

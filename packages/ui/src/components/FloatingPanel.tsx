@@ -115,7 +115,7 @@ export function FloatingPanel({
             <div
                 onMouseDown={(event) => {
                     const target = event.target as HTMLElement;
-                    if (target.closest('button') || target.closest('input') || target.closest('select')) {
+                    if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
                         return;
                     }
                     setDragOffset({
