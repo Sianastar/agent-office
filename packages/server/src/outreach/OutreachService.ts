@@ -1,6 +1,6 @@
 import { InferenceAdapter } from '@agent-office/core';
 import { DISQUALIFIERS, EXCLUDE_KEYWORDS, IDEAL_CLIENT, PROGRAM_SUMMARY, SEGMENTS, Segment } from './profile';
-import { DraftContent, Fit, LeadSearch, OutreachDraft, OutreachStore, SavedSearch } from './OutreachStore';
+import { CommentContent, CommentDraft, CommentFit, CommentOption, DraftContent, Fit, LeadSearch, OutreachDraft, OutreachStore, SavedSearch } from './OutreachStore';
 
 // Filter values as they appear in LinkedIn Sales Navigator's lead filters.
 const SENIORITY = ['Owner / Partner', 'CXO', 'Vice President', 'Director', 'Experienced Manager', 'Strategic', 'Senior'];
@@ -19,7 +19,7 @@ export class OutreachService {
 
     async generateSearches(segment: Segment, focus: string): Promise<SavedSearch[]> {
         const seg = SEGMENTS[segment];
-        const prompt = `You are Sia, a B2B lead researcher who builds LinkedIn Sales Navigator lead searches.
+        const prompt = `You are Killjoy, a B2B lead researcher who builds LinkedIn Sales Navigator lead searches.
 
 WHAT WE SELL:
 ${PROGRAM_SUMMARY}
@@ -46,7 +46,7 @@ Return ONLY this JSON:
         const raw: any[] = Array.isArray(data?.searches) ? data.searches : [];
         const searches = raw.map((s) => this.cleanSearch(s)).filter((s) => s.name && (s.keywords || s.titles.length > 0));
         if (searches.length === 0) {
-            throw new Error('Sia could not produce usable searches this time. Try again.');
+            throw new Error('Killjoy could not produce usable searches this time. Try again.');
         }
 
         const saved: SavedSearch[] = [];
@@ -64,7 +64,7 @@ Return ONLY this JSON:
             ? 'Decide which segment the lead belongs to.'
             : `The user says this lead is in the "${segment}" segment.`;
 
-        const prompt = `You are Karl, an outreach writer. You write LinkedIn messages in the first person on behalf of the user, a coach who runs this program:
+        const prompt = `You are Raze, an outreach writer. You write LinkedIn messages in the first person on behalf of the user, a coach who runs this program:
 ${PROGRAM_SUMMARY}
 
 ${IDEAL_CLIENT}
@@ -104,6 +104,54 @@ Return ONLY this JSON:
         }
 
         return this.store.saveDraft(content, leadProfile);
+    }
+
+    async draftComments(postText: string, voiceSamples: string): Promise<CommentDraft> {
+        const voice = voiceSamples.trim()
+            ? `THE USER'S VOICE (real comments or posts they wrote; match their tone, length, and vocabulary):
+"""
+${voiceSamples.trim().slice(0, 4000)}
+"""`
+            : 'Voice: warm, direct, and plain-spoken. Sound like a thoughtful peer, not a marketer.';
+
+        const prompt = `You are Clove. You write LinkedIn comments in the first person on behalf of the user, a coach who runs this program:
+${PROGRAM_SUMMARY}
+
+The user comments on posts by potential clients so those people notice them as a thoughtful peer before any outreach.
+${IDEAL_CLIENT}
+
+${DISQUALIFIERS}
+
+${voice}
+
+THE LINKEDIN POST (copied by the user, may include the author's name and headline):
+"""
+${postText}
+"""
+
+Write 3 comment options:
+1. style "insight": add a specific perspective or lesson that builds on the post's main point. 2 to 3 sentences.
+2. style "question": one thoughtful question that invites the author to go deeper. 1 to 2 sentences.
+3. style "short": a short, specific reaction that names a concrete detail from the post. One sentence, under 25 words.
+
+Rules:
+- Every comment must reference something specific from the post. Nothing generic like "Great post!" or "Thanks for sharing".
+- Never pitch, never mention coaching, the program, or offers, and never include links.
+- Only connect to confidence, communication, or presence if the post itself touches on it. Never force it.
+- No emojis, no hashtags, no sign-off.
+- Do not invent facts about the author.
+
+Also judge whether the author looks like an ideal client: "good", "maybe", "disqualified", or "unknown" if the post does not say enough. Explain in one sentence.
+
+Return ONLY this JSON:
+{"authorName":"the author's name, or empty","fit":"good or maybe or disqualified or unknown","fitReason":"","comments":[{"style":"insight","text":""},{"style":"question","text":""},{"style":"short","text":""}]}`;
+
+        const data = await this.completeJson(prompt, 0.8);
+        const content = this.cleanComments(data);
+        if (content.comments.length === 0) {
+            throw new Error('Clove could not write comments for that post. Try again.');
+        }
+        return this.store.saveComments(content, postText);
     }
 
     private async shortenNote(note: string): Promise<string> {
@@ -191,6 +239,20 @@ Return ONLY this JSON: {"connectionNote":""}`;
             personalHook: this.str(d?.personalHook),
             connectionNote: disqualified ? '' : this.str(d?.connectionNote),
             followUp: disqualified ? '' : this.str(d?.followUp),
+        };
+    }
+
+    private cleanComments(d: any): CommentContent {
+        const fits: CommentFit[] = ['good', 'maybe', 'disqualified', 'unknown'];
+        const comments: CommentOption[] = (Array.isArray(d?.comments) ? d.comments : [])
+            .map((c: any) => ({ style: this.str(c?.style) || 'comment', text: this.str(c?.text) }))
+            .filter((c: CommentOption) => c.text)
+            .slice(0, 3);
+        return {
+            authorName: this.str(d?.authorName) || 'Unknown author',
+            fit: fits.includes(d?.fit) ? d.fit : 'unknown',
+            fitReason: this.str(d?.fitReason),
+            comments,
         };
     }
 

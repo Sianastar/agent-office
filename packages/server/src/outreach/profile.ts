@@ -1,4 +1,4 @@
-// Edit this file to change who Sia searches for and how Karl writes.
+// Edit this file to change who Killjoy searches for and how Raze writes.
 
 export type Segment = 'founder' | 'executive';
 
@@ -29,7 +29,7 @@ export const SEGMENTS: Record<Segment, { label: string; description: string; mom
     },
 };
 
-// Always added to Sia's searches so competitors and polished speakers are filtered out.
+// Always added to Killjoy's searches so competitors and polished speakers are filtered out.
 export const EXCLUDE_KEYWORDS = [
     'coach',
     'coaching',

@@ -263,7 +263,7 @@ function LeadSearchTab() {
     return (
         <div>
             <div style={{ fontSize: 11, marginBottom: 8, color: '#e6d6f0' }}>
-                Sia writes Sales Navigator searches for your ideal client. In Sales Navigator, open <strong>Lead filters</strong>,
+                Killjoy writes Sales Navigator searches for your ideal client. In Sales Navigator, open <strong>Lead filters</strong>,
                 paste the keywords, set the filters, then select the leads you like and click <strong>Save to list</strong>.
             </div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
@@ -279,7 +279,7 @@ function LeadSearchTab() {
                 />
             </div>
             <button style={{ ...primaryButton, opacity: busy ? 0.6 : 1 }} onClick={generate} disabled={busy}>
-                {busy ? 'Sia is working… (can take a minute or two)' : '🔎 Ask Sia for 4 searches'}
+                {busy ? 'Killjoy is working… (can take a minute or two)' : '🔎 Ask Killjoy for 4 searches'}
             </button>
             {error && <div style={{ fontSize: 11, color: '#ffadad', marginTop: 6 }}>{error}</div>}
 
@@ -356,11 +356,11 @@ function OutreachTab() {
     return (
         <div>
             <div style={{ fontSize: 11, marginBottom: 8, color: '#e6d6f0' }}>
-                Paste a lead's LinkedIn profile (name, headline, company, About, a recent post). Karl checks the fit and drafts a
+                Paste a lead's LinkedIn profile (name, headline, company, About, a recent post). Raze checks the fit and drafts a
                 connection note and a follow-up. You review, copy, and send them yourself on LinkedIn.
             </div>
             <select value={segment} onChange={(e) => setSegment(e.target.value as Segment | 'auto')} style={{ ...inputStyle, marginBottom: 6 }}>
-                <option value="auto">Let Karl decide the segment</option>
+                <option value="auto">Let Raze decide the segment</option>
                 <option value="founder">{SEGMENT_LABELS.founder}</option>
                 <option value="executive">{SEGMENT_LABELS.executive}</option>
             </select>
@@ -376,7 +376,7 @@ function OutreachTab() {
                 onClick={draft}
                 disabled={busy || leadProfile.trim().length < 20}
             >
-                {busy ? 'Karl is writing… (can take a minute or two)' : '✍️ Ask Karl to draft'}
+                {busy ? 'Raze is writing… (can take a minute or two)' : '✍️ Ask Raze to draft'}
             </button>
             {error && <div style={{ fontSize: 11, color: '#ffadad', marginTop: 6 }}>{error}</div>}
 
@@ -401,10 +401,224 @@ function OutreachTab() {
     );
 }
 
-export function OutreachStudio() {
-    const [tab, setTab] = useState<'leads' | 'outreach'>('leads');
+type CommentFit = Fit | 'unknown';
+type CommentStatus = 'drafted' | 'posted' | 'skipped';
 
-    const tabButton = (key: 'leads' | 'outreach', label: string) => (
+interface CommentSet {
+    id: number;
+    authorName: string;
+    fit: CommentFit;
+    fitReason: string;
+    comments: Array<{ style: string; text: string }>;
+    postText: string;
+    status: CommentStatus;
+}
+
+const COMMENT_FIT_BADGES: Record<CommentFit, { label: string; color: string }> = {
+    ...FIT_BADGES,
+    unknown: { label: '❔ Unknown fit', color: '#e6d6f0' },
+};
+
+const STYLE_LABELS: Record<string, string> = {
+    insight: 'Adds an insight',
+    question: 'Asks a question',
+    short: 'Short & specific',
+};
+
+function CommentCard({ set, onChange, onDelete }: {
+    set: CommentSet;
+    onChange: (updated: CommentSet) => void;
+    onDelete: () => void;
+}) {
+    const [texts, setTexts] = useState(set.comments.map((c) => c.text));
+    const [error, setError] = useState('');
+
+    const save = async (fields: { status?: CommentStatus; comments?: CommentSet['comments'] }) => {
+        try {
+            const data = await api<{ set: CommentSet }>(`/api/outreach/comments/${set.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(fields),
+            });
+            setError('');
+            onChange(data.set);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
+
+    const saveTexts = () => {
+        const edited = set.comments.map((c, i) => ({ ...c, text: texts[i] }));
+        if (edited.some((c, i) => c.text !== set.comments[i].text)) save({ comments: edited });
+    };
+
+    const badge = COMMENT_FIT_BADGES[set.fit];
+    const excerpt = set.postText.length > 160 ? `${set.postText.slice(0, 160)}…` : set.postText;
+
+    return (
+        <div style={{ ...cardStyle, opacity: set.status === 'drafted' ? 1 : 0.7 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
+                <strong style={{ fontSize: 12 }}>{set.authorName}</strong>
+                <span style={{ fontSize: 10, color: badge.color, fontWeight: 700 }}>{badge.label}</span>
+            </div>
+            <div style={{ fontSize: 10, opacity: 0.75 }}>
+                {set.status === 'posted' ? '💬 Posted' : set.status === 'skipped' ? '⏭️ Skipped' : '📝 To post'}
+                {set.fitReason ? ` · ${set.fitReason}` : ''}
+            </div>
+            <div style={{ fontSize: 10, marginTop: 4, padding: 6, borderRadius: 6, background: 'rgba(0,0,0,0.18)', whiteSpace: 'pre-wrap' }}>
+                {excerpt}
+            </div>
+
+            {set.comments.map((c, i) => (
+                <div key={i}>
+                    <div style={{ ...labelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{STYLE_LABELS[c.style] || 'Comment'}</span>
+                        <CopyButton text={texts[i]} />
+                    </div>
+                    <textarea
+                        value={texts[i]}
+                        onChange={(e) => setTexts((prev) => prev.map((t, j) => (j === i ? e.target.value : t)))}
+                        onBlur={saveTexts}
+                        rows={c.style === 'short' ? 2 : 3}
+                        style={{ ...inputStyle, resize: 'vertical' }}
+                    />
+                </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                {set.status !== 'posted' && <button style={smallButton} onClick={() => save({ status: 'posted' })}>Mark posted</button>}
+                {set.status === 'drafted' && <button style={smallButton} onClick={() => save({ status: 'skipped' })}>Skip</button>}
+                {set.status !== 'drafted' && <button style={smallButton} onClick={() => save({ status: 'drafted' })}>Move back to "to post"</button>}
+                <button style={smallButton} onClick={onDelete}>Delete</button>
+            </div>
+            {error && <div style={{ fontSize: 10, color: '#ffadad', marginTop: 4 }}>{error}</div>}
+        </div>
+    );
+}
+
+function CommentsTab() {
+    const [postText, setPostText] = useState('');
+    const [sets, setSets] = useState<CommentSet[]>([]);
+    const [filter, setFilter] = useState<CommentStatus | 'all'>('drafted');
+    const [voice, setVoice] = useState('');
+    const [voiceOpen, setVoiceOpen] = useState(false);
+    const [voiceStatus, setVoiceStatus] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        api<{ comments: CommentSet[] }>('/api/outreach/comments')
+            .then((data) => setSets(data.comments))
+            .catch((e) => setError(e.message));
+        api<{ voice: string }>('/api/outreach/voice')
+            .then((data) => setVoice(data.voice))
+            .catch(() => undefined);
+    }, []);
+
+    const saveVoice = async () => {
+        try {
+            await api('/api/outreach/voice', { method: 'PUT', body: JSON.stringify({ voice }) });
+            setVoiceStatus('Saved. Clove will match this voice.');
+        } catch (e: any) {
+            setVoiceStatus(e.message);
+        }
+    };
+
+    const draft = async () => {
+        setBusy(true);
+        setError('');
+        try {
+            const data = await api<{ set: CommentSet }>('/api/outreach/comments', {
+                method: 'POST',
+                body: JSON.stringify({ postText }),
+            });
+            setSets((prev) => [data.set, ...prev]);
+            setPostText('');
+            setFilter('drafted');
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const replace = (updated: CommentSet) => setSets((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+
+    const remove = async (id: number) => {
+        try {
+            await api(`/api/outreach/comments/${id}`, { method: 'DELETE' });
+            setSets((prev) => prev.filter((s) => s.id !== id));
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
+
+    const filters: Array<[CommentStatus | 'all', string]> = [['drafted', 'To post'], ['posted', 'Posted'], ['skipped', 'Skipped'], ['all', 'All']];
+    const matches = (s: CommentSet, f: CommentStatus | 'all') => f === 'all' || s.status === f;
+    const visible = sets.filter((s) => matches(s, filter));
+
+    return (
+        <div>
+            <div style={{ fontSize: 11, marginBottom: 8, color: '#e6d6f0' }}>
+                Paste a LinkedIn post from a founder or exec you want to warm up (include their name and headline if you can).
+                Clove writes 3 comment options. Pick one, tweak it, and post it yourself on LinkedIn.
+            </div>
+
+            <button style={{ ...smallButton, marginBottom: 6 }} onClick={() => setVoiceOpen((v) => !v)}>
+                {voiceOpen ? '▾' : '▸'} Your voice {voice.trim() ? '(saved)' : '(optional)'}
+            </button>
+            {voiceOpen && (
+                <div style={{ marginBottom: 8 }}>
+                    <textarea
+                        value={voice}
+                        onChange={(e) => { setVoice(e.target.value); setVoiceStatus(''); }}
+                        placeholder="Paste 3–5 comments or posts you've written so Clove sounds like you…"
+                        rows={4}
+                        style={{ ...inputStyle, resize: 'vertical', marginBottom: 4 }}
+                    />
+                    <button style={smallButton} onClick={saveVoice}>Save voice</button>
+                    {voiceStatus && <span style={{ fontSize: 10, marginLeft: 6, color: '#e6d6f0' }}>{voiceStatus}</span>}
+                </div>
+            )}
+
+            <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                placeholder="Paste the LinkedIn post here…"
+                rows={6}
+                style={{ ...inputStyle, resize: 'vertical', marginBottom: 6 }}
+            />
+            <button
+                style={{ ...primaryButton, opacity: busy || postText.trim().length < 20 ? 0.6 : 1 }}
+                onClick={draft}
+                disabled={busy || postText.trim().length < 20}
+            >
+                {busy ? 'Clove is writing… (can take a minute or two)' : '💬 Ask Clove for comments'}
+            </button>
+            {error && <div style={{ fontSize: 11, color: '#ffadad', marginTop: 6 }}>{error}</div>}
+
+            <div style={{ display: 'flex', gap: 4, marginTop: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                {filters.map(([key, label]) => (
+                    <button
+                        key={key}
+                        onClick={() => setFilter(key)}
+                        style={{ ...smallButton, background: filter === key ? '#e58fb6' : smallButton.background }}
+                    >
+                        {label} ({sets.filter((s) => matches(s, key)).length})
+                    </button>
+                ))}
+            </div>
+            {visible.length === 0 && <div style={{ fontSize: 11, fontStyle: 'italic', color: '#e6d6f0' }}>Nothing here yet.</div>}
+            {visible.map((s) => (
+                <CommentCard key={s.id} set={s} onChange={replace} onDelete={() => remove(s.id)} />
+            ))}
+        </div>
+    );
+}
+
+export function OutreachStudio() {
+    const [tab, setTab] = useState<'leads' | 'outreach' | 'comments'>('leads');
+
+    const tabButton = (key: 'leads' | 'outreach' | 'comments', label: string) => (
         <button
             onClick={() => setTab(key)}
             style={{
@@ -420,19 +634,21 @@ export function OutreachStudio() {
         <FloatingPanel
             id="outreach-studio"
             title="💼 Outreach Studio"
-            subtitle="Sia finds leads · Karl drafts outreach · you send"
+            subtitle="Killjoy finds leads · Raze drafts outreach · Clove drafts comments · you send"
             width={440}
             defaultDock="right"
             defaultY={20}
             zIndex={20}
         >
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                {tabButton('leads', '🔎 Sia · Lead searches')}
-                {tabButton('outreach', '✍️ Karl · Outreach')}
+                {tabButton('leads', '🔎 Killjoy · Leads')}
+                {tabButton('outreach', '✍️ Raze · Outreach')}
+                {tabButton('comments', '💬 Clove · Comments')}
             </div>
             <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
                 <div style={{ display: tab === 'leads' ? 'block' : 'none' }}><LeadSearchTab /></div>
                 <div style={{ display: tab === 'outreach' ? 'block' : 'none' }}><OutreachTab /></div>
+                <div style={{ display: tab === 'comments' ? 'block' : 'none' }}><CommentsTab /></div>
             </div>
         </FloatingPanel>
     );

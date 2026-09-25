@@ -45,8 +45,9 @@ export class OfficeRoom extends Room<OfficeState> {
 
     // Furniture interaction points: named locations agents can walk to
     private furnitureTargets: Record<string, { x: number; y: number; type: string }> = {
-        'sia-desk': { x: 5, y: 18, type: 'desk' },
-        'karl-desk': { x: 5, y: 23, type: 'desk' },
+        'killjoy-desk': { x: 5, y: 18, type: 'desk' },
+        'raze-desk': { x: 5, y: 23, type: 'desk' },
+        'clove-desk': { x: 5, y: 28, type: 'desk' },
         'meeting-table': { x: 10, y: 5, type: 'table' },
         'coffee-machine': { x: 25, y: 25, type: 'appliance' },
         'whiteboard': { x: 17, y: 3, type: 'board' },
@@ -161,8 +162,9 @@ export class OfficeRoom extends Room<OfficeState> {
             this.thinkingLocks.set(id, false);
         };
 
-        await setupCoreAgent('sia', 'Sia', 'Lead Researcher', 'You build LinkedIn Sales Navigator searches that find founders and senior executives with deep expertise but low visibility.', 10, 10);
-        await setupCoreAgent('karl', 'Karl', 'Outreach Writer', 'You screen leads and draft warm LinkedIn connection notes and follow-up messages for a confidence and presence coaching program.', 20, 15);
+        await setupCoreAgent('killjoy', 'Killjoy', 'Lead Researcher', 'You build LinkedIn Sales Navigator searches that find founders and senior executives with deep expertise but low visibility.', 10, 10);
+        await setupCoreAgent('raze', 'Raze', 'Outreach Writer', 'You screen leads and draft warm LinkedIn connection notes and follow-up messages for a confidence and presence coaching program.', 20, 15);
+        await setupCoreAgent('clove', 'Clove', 'Engagement Writer', 'You draft thoughtful LinkedIn comments on posts by founders and executives so the user stays visible to future clients.', 15, 12);
         this.rebuildRelationshipGraph();
         const savedLayout = await this.memoryStore.loadLayout('default');
         this.currentLayout = Array.isArray(savedLayout) ? savedLayout : [];
@@ -240,7 +242,7 @@ export class OfficeRoom extends Room<OfficeState> {
         for (const [id, agent] of this.coreAgents) {
             if (!agent.currentTask) return id;
         }
-        return 'sia'; // fallback
+        return 'killjoy'; // fallback
     }
 
     async update(delta: number) {

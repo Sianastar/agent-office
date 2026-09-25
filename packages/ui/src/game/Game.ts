@@ -3,6 +3,9 @@ import * as Colyseus from 'colyseus.js';
 import { OfficeState, AgentState } from './schema';
 import { eventBus } from '../events';
 
+// Named agents use the sheet matching their lowercased name; hired agents fall back to char_0.
+const SPRITE_KEYS = ['char_0', 'char_1', 'killjoy', 'raze', 'clove'];
+
 let activeRoom: Colyseus.Room<OfficeState> | undefined;
 
 export function getColyseusRoom() {
@@ -50,14 +53,12 @@ export class OfficeScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.spritesheet('char_0', '/assets/characters/char_0.png', {
-            frameWidth: 16,
-            frameHeight: 32
-        });
-        this.load.spritesheet('char_1', '/assets/characters/char_1.png', {
-            frameWidth: 16,
-            frameHeight: 32
-        });
+        for (const key of SPRITE_KEYS) {
+            this.load.spritesheet(key, `/assets/characters/${key}.png`, {
+                frameWidth: 16,
+                frameHeight: 32
+            });
+        }
     }
 
     create() {
@@ -69,20 +70,13 @@ export class OfficeScene extends Phaser.Scene {
 
             let hasAnims = false;
 
-            // Create animations for character 0
-            if (this.textures.exists('char_0')) {
+            for (const key of SPRITE_KEYS) {
+                if (!this.textures.exists(key)) continue;
                 const anims = this.anims;
-                anims.create({ key: 'char_0-walk-down', frames: anims.generateFrameNumbers('char_0', { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
-                anims.create({ key: 'char_0-walk-up', frames: anims.generateFrameNumbers('char_0', { start: 7, end: 9 }), frameRate: 8, repeat: -1 });
-                anims.create({ key: 'char_0-walk-right', frames: anims.generateFrameNumbers('char_0', { start: 14, end: 16 }), frameRate: 8, repeat: -1 });
+                anims.create({ key: `${key}-walk-down`, frames: anims.generateFrameNumbers(key, { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
+                anims.create({ key: `${key}-walk-up`, frames: anims.generateFrameNumbers(key, { start: 7, end: 9 }), frameRate: 8, repeat: -1 });
+                anims.create({ key: `${key}-walk-right`, frames: anims.generateFrameNumbers(key, { start: 14, end: 16 }), frameRate: 8, repeat: -1 });
                 hasAnims = true;
-            }
-            // Create animations for character 1
-            if (this.textures.exists('char_1')) {
-                const anims = this.anims;
-                anims.create({ key: 'char_1-walk-down', frames: anims.generateFrameNumbers('char_1', { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
-                anims.create({ key: 'char_1-walk-up', frames: anims.generateFrameNumbers('char_1', { start: 7, end: 9 }), frameRate: 8, repeat: -1 });
-                anims.create({ key: 'char_1-walk-right', frames: anims.generateFrameNumbers('char_1', { start: 14, end: 16 }), frameRate: 8, repeat: -1 });
             }
 
             console.log("Animations created: ", hasAnims);
@@ -279,9 +273,9 @@ export class OfficeScene extends Phaser.Scene {
                 this.add.text(x + 28, y - 6, label, { fontSize: '8px', color: '#9a7bb5' }).setOrigin(0.5);
             };
 
-            drawWorkstation(64, 240, '💻 Sia\'s Desk', true);
-            drawWorkstation(64, 320, '💻 Karl\'s Desk', true);
-            drawWorkstation(64, 400, '💻 Vacant', false);
+            drawWorkstation(64, 240, '💻 Killjoy\'s Desk', true);
+            drawWorkstation(64, 320, '💻 Raze\'s Desk', true);
+            drawWorkstation(64, 400, '💻 Clove\'s Desk', true);
 
             // ═══════════════════════════════════════════
             //  COFFEE & PANTRY AREA
@@ -613,8 +607,8 @@ export class OfficeScene extends Phaser.Scene {
                     const container = this.add.container(agent.x * 16, agent.y * 16);
 
                     let sprite;
-                    let charKey = 'char_0';
-                    if (agent.name.includes('Karl')) charKey = 'char_1';
+                    const namedSprite = agent.name.toLowerCase();
+                    const charKey = SPRITE_KEYS.includes(namedSprite) ? namedSprite : 'char_0';
 
                     if (this.textures.exists(charKey)) {
                         sprite = this.add.sprite(0, -8, charKey, 0);

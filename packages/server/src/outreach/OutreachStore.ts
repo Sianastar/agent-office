@@ -43,6 +43,28 @@ export interface OutreachDraft extends DraftContent {
     createdAt: string;
 }
 
+export type CommentFit = Fit | 'unknown';
+export type CommentStatus = 'drafted' | 'posted' | 'skipped';
+
+export interface CommentOption {
+    style: string;
+    text: string;
+}
+
+export interface CommentContent {
+    authorName: string;
+    fit: CommentFit;
+    fitReason: string;
+    comments: CommentOption[];
+}
+
+export interface CommentDraft extends CommentContent {
+    id: number;
+    postText: string;
+    status: CommentStatus;
+    createdAt: string;
+}
+
 export class OutreachStore {
     private db?: Database;
 
@@ -73,6 +95,22 @@ export class OutreachStore {
                 lead_profile TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'drafted',
                 created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS comment_drafts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_name TEXT NOT NULL,
+                fit TEXT NOT NULL,
+                fit_reason TEXT NOT NULL,
+                comments_json TEXT NOT NULL,
+                post_text TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'drafted',
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );
         `);
     }
@@ -134,6 +172,61 @@ export class OutreachStore {
     async deleteDraft(id: number): Promise<boolean> {
         const result = await this.conn.run('DELETE FROM outreach_drafts WHERE id = ?', [id]);
         return (result.changes || 0) > 0;
+    }
+
+    async saveComments(content: CommentContent, postText: string): Promise<CommentDraft> {
+        const result = await this.conn.run(
+            'INSERT INTO comment_drafts (author_name, fit, fit_reason, comments_json, post_text) VALUES (?, ?, ?, ?, ?)',
+            [content.authorName, content.fit, content.fitReason, JSON.stringify(content.comments), postText]
+        );
+        const row = await this.conn.get('SELECT * FROM comment_drafts WHERE id = ?', [result.lastID]);
+        return this.toComments(row);
+    }
+
+    async listComments(limit = 200): Promise<CommentDraft[]> {
+        const rows = await this.conn.all('SELECT * FROM comment_drafts ORDER BY id DESC LIMIT ?', [limit]);
+        return rows.map((r) => this.toComments(r));
+    }
+
+    async updateComments(id: number, fields: { status?: CommentStatus; comments?: CommentOption[] }): Promise<CommentDraft | null> {
+        if (fields.status !== undefined) {
+            await this.conn.run('UPDATE comment_drafts SET status = ? WHERE id = ?', [fields.status, id]);
+        }
+        if (fields.comments !== undefined) {
+            await this.conn.run('UPDATE comment_drafts SET comments_json = ? WHERE id = ?', [JSON.stringify(fields.comments), id]);
+        }
+        const row = await this.conn.get('SELECT * FROM comment_drafts WHERE id = ?', [id]);
+        return row ? this.toComments(row) : null;
+    }
+
+    async deleteComments(id: number): Promise<boolean> {
+        const result = await this.conn.run('DELETE FROM comment_drafts WHERE id = ?', [id]);
+        return (result.changes || 0) > 0;
+    }
+
+    async getSetting(key: string): Promise<string> {
+        const row = await this.conn.get('SELECT value FROM settings WHERE key = ?', [key]);
+        return row ? row.value : '';
+    }
+
+    async setSetting(key: string, value: string): Promise<void> {
+        await this.conn.run(
+            'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+            [key, value]
+        );
+    }
+
+    private toComments(row: any): CommentDraft {
+        return {
+            id: row.id,
+            authorName: row.author_name,
+            fit: row.fit,
+            fitReason: row.fit_reason,
+            comments: JSON.parse(row.comments_json),
+            postText: row.post_text,
+            status: row.status,
+            createdAt: row.created_at,
+        };
     }
 
     private toSearch(row: any): SavedSearch {
