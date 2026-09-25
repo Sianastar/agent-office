@@ -5,6 +5,8 @@ import { OllamaAdapter } from '@agent-office/adapters';
 import { ToolExecutor } from '../tools/ToolExecutor';
 import { MemoryStore } from '../memory/MemoryStore';
 
+const AGENT_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
+
 interface HighlightEvent {
     type: string;
     title: string;
@@ -44,8 +46,8 @@ export class OfficeRoom extends Room<OfficeState> {
 
     // Furniture interaction points: named locations agents can walk to
     private furnitureTargets: Record<string, { x: number; y: number; type: string }> = {
-        'alice-desk': { x: 5, y: 18, type: 'desk' },
-        'bob-desk': { x: 5, y: 23, type: 'desk' },
+        'sia-desk': { x: 5, y: 18, type: 'desk' },
+        'karl-desk': { x: 5, y: 23, type: 'desk' },
         'meeting-table': { x: 10, y: 5, type: 'table' },
         'coffee-machine': { x: 25, y: 25, type: 'appliance' },
         'whiteboard': { x: 17, y: 3, type: 'board' },
@@ -91,7 +93,7 @@ export class OfficeRoom extends Room<OfficeState> {
                 id, name, role, avatar: 'sprite.png',
                 inference: {
                     provider: 'ollama',
-                    model: 'llama3.2:latest',
+                    model: AGENT_MODEL,
                     systemPrompt: `You are ${name}, a ${role} in a virtual office. Be social, do your work, and collaborate with colleagues. Keep thoughts SHORT.`,
                 },
                 personality: {
@@ -124,8 +126,8 @@ export class OfficeRoom extends Room<OfficeState> {
             this.thinkingLocks.set(id, false);
         };
 
-        await setupCoreAgent('alice', 'Alice', 'Engineer', 10, 10);
-        await setupCoreAgent('bob', 'Bob', 'Product Manager', 20, 15);
+        await setupCoreAgent('sia', 'Sia', 'Engineer', 10, 10);
+        await setupCoreAgent('karl', 'Karl', 'Product Manager', 20, 15);
         this.rebuildRelationshipGraph();
         const savedLayout = await this.memoryStore.loadLayout('default');
         this.currentLayout = Array.isArray(savedLayout) ? savedLayout : [];
@@ -203,7 +205,7 @@ export class OfficeRoom extends Room<OfficeState> {
         for (const [id, agent] of this.coreAgents) {
             if (!agent.currentTask) return id;
         }
-        return 'alice'; // fallback
+        return 'sia'; // fallback
     }
 
     async update(delta: number) {
@@ -340,7 +342,7 @@ export class OfficeRoom extends Room<OfficeState> {
                                     id: hireId, name: hireName, role: hireRole, avatar: 'sprite.png',
                                     inference: {
                                         provider: 'ollama',
-                                        model: 'llama3.2:latest',
+                                        model: AGENT_MODEL,
                                         systemPrompt: `You are ${hireName}, a ${hireRole} who just joined the team at a virtual office. You were hired by ${coreAgent.config.name}. Be enthusiastic, helpful, and eager to learn. Introduce yourself to your colleagues. Keep thoughts SHORT.`,
                                     },
                                     personality: {

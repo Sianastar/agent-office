@@ -19,7 +19,7 @@ export function App() {
             </div>
             <ChatPanel />
             <TaskBoard />
-            <AgentInspector agent={{ name: 'Alice', role: 'Engineer', status: 'Idle', currentTask: 'Write Scaffold' }} />
+            <AgentInspector agent={{ name: 'Sia', role: 'Engineer', status: 'Idle', currentTask: 'Write Scaffold' }} />
             <LayoutEditor />
             <SystemLog />
             <ViralControlPanel />

@@ -90,7 +90,7 @@ export function SystemLog() {
                         <span style={{ opacity: 0.4, minWidth: 48 }}>{log.time}</span>
                         <span>{actionIcons[log.action] || '•'}</span>
                         <span>
-                            <strong style={{ color: log.agent === 'Alice' ? '#aaffaa' : '#3a86ff' }}>{log.agent}</strong>
+                            <strong style={{ color: log.agent === 'Sia' ? '#aaffaa' : '#3a86ff' }}>{log.agent}</strong>
                             {' '}
                             <span style={{ color: '#888' }}>{log.action}</span>
                             {log.thought && <span style={{ color: '#666', fontStyle: 'italic' }}> — "{log.thought.slice(0, 60)}"</span>}

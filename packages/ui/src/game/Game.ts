@@ -279,8 +279,8 @@ export class OfficeScene extends Phaser.Scene {
                 this.add.text(x + 28, y - 6, label, { fontSize: '8px', color: '#a0a0c0' }).setOrigin(0.5);
             };
 
-            drawWorkstation(64, 240, '💻 Alice\'s Desk', true);
-            drawWorkstation(64, 320, '💻 Bob\'s Desk', true);
+            drawWorkstation(64, 240, '💻 Sia\'s Desk', true);
+            drawWorkstation(64, 320, '💻 Karl\'s Desk', true);
             drawWorkstation(64, 400, '💻 Vacant', false);
 
             // ═══════════════════════════════════════════
@@ -547,7 +547,7 @@ export class OfficeScene extends Phaser.Scene {
 
                     let sprite;
                     let charKey = 'char_0';
-                    if (agent.name.includes('Bob')) charKey = 'char_1';
+                    if (agent.name.includes('Karl')) charKey = 'char_1';
 
                     if (this.textures.exists(charKey)) {
                         sprite = this.add.sprite(0, -8, charKey, 0);
