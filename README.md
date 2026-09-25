@@ -7,6 +7,11 @@ Watch AI agents walk to desks, think, collaborate, hire interns, assign tasks to
 > **Zero lock-in.** Runs 100% locally with Ollama. Swap for any OpenAI-compatible API.
 
 
+
+https://github.com/user-attachments/assets/da76e31d-ff34-4ce1-9092-5bf9e6ee2058
+
+
+
 [https://youtu.be/GgrK8K9RlIA](https://youtu.be/GgrK8K9RlIA)
 
 <img width="1697" height="1272" alt="Screenshot at Feb 25 00-15-59" src="https://github.com/user-attachments/assets/9ed16692-09d9-44e4-a258-f796f9479afb" />
