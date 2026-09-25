@@ -88,7 +88,7 @@ export function ViralControlPanel() {
                     onChange={(e) => setScenario(e.target.value)}
                     style={{
                         flex: 1,
-                        background: '#181f45',
+                        background: '#7a5a93',
                         color: '#fff',
                         borderRadius: 8,
                         border: '1px solid rgba(255,255,255,0.2)',

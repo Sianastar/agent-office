@@ -62,6 +62,19 @@ export class OfficeRoom extends Room<OfficeState> {
         'hire_4-desk': { x: 32, y: 18, type: 'desk' },
     };
 
+    private gymSpots: Array<{ x: number; y: number }> = [
+        { x: 12, y: 30 }, // treadmill
+        { x: 16, y: 30 }, // weight bench
+        { x: 12, y: 34 }, // yoga mat
+        { x: 15, y: 34 }, // yoga mat
+        { x: 19, y: 34 }, // exercise ball
+    ];
+
+    private gymSpotFor(agentId: string): { x: number; y: number } {
+        const index = Array.from(this.state.agents.keys()).indexOf(agentId);
+        return this.gymSpots[Math.max(0, index) % this.gymSpots.length];
+    }
+
     static getActiveRoom(): OfficeRoom | null {
         return OfficeRoom.activeRoom;
     }
@@ -242,7 +255,15 @@ export class OfficeRoom extends Room<OfficeState> {
                     recentMessages: coreAgent.getUnreadMessages(),
                     memories: coreAgent.getRecentMemories(5)
                 }).then(async (decision) => {
+                    const previousAction = agentState.action;
                     agentState.action = decision.action;
+
+                    if (decision.action === 'workout' && previousAction !== 'workout') {
+                        this.broadcast('chat', {
+                            sender: 'System',
+                            text: `🏋️ ${coreAgent.config.name} is bored and heading to the gym!`
+                        });
+                    }
 
                     if (decision.thought) {
                         agentState.thought = decision.thought;
@@ -447,7 +468,11 @@ export class OfficeRoom extends Room<OfficeState> {
             this.state.agents.forEach((agent, key) => {
                 // Default targets: agent's own desk chair
                 const deskKey = `${key}-desk`;
-                const target = this.furnitureTargets[deskKey] || { x: 5, y: 18 };
+                let target: { x: number; y: number } = this.furnitureTargets[deskKey] || { x: 5, y: 18 };
+                const bored = agent.action === 'idle' && !agent.currentTask;
+                if (agent.action === 'workout' || bored) {
+                    target = this.gymSpotFor(key);
+                }
 
                 // If agent action is 'talk', move towards the other agent instead
                 if (agent.action === 'talk') {
@@ -511,7 +536,7 @@ export class OfficeRoom extends Room<OfficeState> {
 
         state.momentum = this.clamp01(state.momentum + actionBoost + jitter);
         state.riskLevel = this.clamp01(state.riskLevel + (action === 'use_tool' ? 0.02 : -0.004) + jitter);
-        state.mood = this.clamp01(state.mood + (action === 'talk' ? 0.02 : -0.002) + jitter);
+        state.mood = this.clamp01(state.mood + (action === 'talk' ? 0.02 : action === 'workout' ? 0.03 : -0.002) + jitter);
         state.reputation = this.clamp01(state.reputation + (action === 'work' ? 0.015 : 0.001) + jitter / 2);
     }
 

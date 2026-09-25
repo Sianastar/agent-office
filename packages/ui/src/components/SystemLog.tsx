@@ -10,7 +10,7 @@ interface LogEntry {
 }
 
 const actionIcons: Record<string, string> = {
-    'work': '💻', 'talk': '💬', 'idle': '😌',
+    'work': '💻', 'talk': '💬', 'idle': '😌', 'workout': '🏋️',
     'use_tool': '🔧', 'move': '🚶', 'think': '💡'
 };
 
@@ -66,21 +66,21 @@ export function SystemLog() {
     return (
         <div style={{
             position: 'absolute', right: 20, top: 20, width: 260,
-            backgroundColor: 'rgba(10,10,30,0.92)', color: 'white',
+            backgroundColor: 'rgba(92,62,112,0.92)', color: 'white',
             padding: 12, borderRadius: 12,
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(108,92,231,0.3)',
+            border: '1px solid rgba(247,168,196,0.5)',
             maxHeight: '35vh', display: 'flex', flexDirection: 'column',
             zIndex: 10
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <h3 style={{ margin: 0, fontSize: '13px' }}>📊 System Activity Log</h3>
-                <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: '#e6d6f0', cursor: 'pointer', fontSize: '14px' }}>✕</button>
             </div>
 
             <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', fontSize: '10px', lineHeight: 1.5 }}>
                 {logs.length === 0 && (
-                    <p style={{ color: '#555', fontStyle: 'italic', margin: 0 }}>Waiting for agent events...</p>
+                    <p style={{ color: '#e6d6f0', fontStyle: 'italic', margin: 0 }}>Waiting for agent events...</p>
                 )}
                 {logs.map(log => (
                     <div key={log.id} style={{
@@ -92,8 +92,8 @@ export function SystemLog() {
                         <span>
                             <strong style={{ color: log.agent === 'Sia' ? '#aaffaa' : '#3a86ff' }}>{log.agent}</strong>
                             {' '}
-                            <span style={{ color: '#888' }}>{log.action}</span>
-                            {log.thought && <span style={{ color: '#666', fontStyle: 'italic' }}> — "{log.thought.slice(0, 60)}"</span>}
+                            <span style={{ color: '#f2e6fa' }}>{log.action}</span>
+                            {log.thought && <span style={{ color: '#e6d6f0', fontStyle: 'italic' }}> — "{log.thought.slice(0, 60)}"</span>}
                         </span>
                     </div>
                 ))}

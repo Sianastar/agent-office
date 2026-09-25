@@ -107,7 +107,7 @@ export function FloatingPanel({
             borderRadius: 12,
             overflow: 'hidden',
             border: '1px solid rgba(255,255,255,0.2)',
-            backgroundColor: 'rgba(7, 10, 20, 0.86)',
+            backgroundColor: 'rgba(92, 62, 112, 0.9)',
             color: '#f4f8ff',
             boxShadow: '0 10px 26px rgba(0,0,0,0.42)',
             backdropFilter: 'blur(6px)'
@@ -130,7 +130,7 @@ export function FloatingPanel({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     borderBottom: minimized ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                    background: 'linear-gradient(90deg, rgba(28,33,71,0.8), rgba(72,31,51,0.65))'
+                    background: 'linear-gradient(90deg, rgba(196,140,200,0.55), rgba(240,160,190,0.45))'
                 }}
             >
                 <div>

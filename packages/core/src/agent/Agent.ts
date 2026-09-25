@@ -14,7 +14,7 @@ export interface Perception {
 
 export interface Decision {
     thought: string;
-    action: 'move' | 'talk' | 'work' | 'use_tool' | 'idle';
+    action: 'move' | 'talk' | 'work' | 'use_tool' | 'idle' | 'workout';
     target?: string;
     message?: string;
     toolCall?: { name: string; params: any };
@@ -154,7 +154,7 @@ ${memoryStr}
 You must decide your next action. Reply ONLY with a JSON object:
 {
   "thought": "your brief inner monologue (max 30 words)",
-  "action": "work" | "talk" | "idle" | "use_tool",
+  "action": "work" | "talk" | "idle" | "use_tool" | "workout",
   "target": "agent name if talking, or tool name if using tool",
   "message": "what you say if action is talk",
   "toolCall": { "name": "tool_name", "params": {} }
@@ -164,6 +164,7 @@ Rules:
 - If someone sent you a message, you should respond with action "talk"
 - Keep thoughts SHORT (under 30 words)
 - If you have a task, work on it
+- If you have no task and feel bored, go to the office gym with action "workout"
 - Be collaborative and social`;
 
             const res = await this.adapter.complete({

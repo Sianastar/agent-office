@@ -65,11 +65,11 @@ export function TaskBoard() {
     return (
         <div style={{
             position: 'absolute', left: 20, top: 20, width: 280,
-            backgroundColor: 'rgba(10,10,30,0.92)', color: 'white',
+            backgroundColor: 'rgba(92,62,112,0.92)', color: 'white',
             padding: 16, borderRadius: 12,
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(108,92,231,0.3)',
+            border: '1px solid rgba(247,168,196,0.5)',
             maxHeight: '50vh', display: 'flex', flexDirection: 'column'
         }}>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -85,7 +85,7 @@ export function TaskBoard() {
                     placeholder="Assign a task..."
                     style={{
                         width: '100%', padding: '8px 10px', borderRadius: 6,
-                        border: '1px solid #444', backgroundColor: '#1a1a3e',
+                        border: '1px solid #c9a7eb', backgroundColor: '#7a5a93',
                         color: 'white', fontSize: '12px', outline: 'none',
                         boxSizing: 'border-box', marginBottom: 6
                     }}
@@ -96,7 +96,7 @@ export function TaskBoard() {
                         onChange={(e) => setTargetAgent(e.target.value)}
                         style={{
                             flex: 1, padding: '6px', borderRadius: 6,
-                            border: '1px solid #444', backgroundColor: '#1a1a3e',
+                            border: '1px solid #c9a7eb', backgroundColor: '#7a5a93',
                             color: '#aaa', fontSize: '11px'
                         }}
                     >
@@ -106,7 +106,7 @@ export function TaskBoard() {
                     </select>
                     <button type="submit" style={{
                         padding: '6px 14px', borderRadius: 6, border: 'none',
-                        backgroundColor: '#6c5ce7', color: 'white', fontSize: '11px',
+                        backgroundColor: '#e58fb6', color: 'white', fontSize: '11px',
                         cursor: 'pointer', fontWeight: 'bold'
                     }}>
                         Assign
@@ -117,7 +117,7 @@ export function TaskBoard() {
             {/* Task List */}
             <div style={{ flex: 1, overflowY: 'auto', fontSize: '12px' }}>
                 {tasks.length === 0 && (
-                    <p style={{ color: '#666', fontStyle: 'italic', margin: 0, fontSize: '11px' }}>
+                    <p style={{ color: '#e6d6f0', fontStyle: 'italic', margin: 0, fontSize: '11px' }}>
                         No tasks yet. Type above to assign work to agents!
                     </p>
                 )}
@@ -130,14 +130,14 @@ export function TaskBoard() {
                         <div style={{ fontWeight: 'bold', fontSize: '11px' }}>
                             {statusIcon(task.status)} {task.title}
                         </div>
-                        <div style={{ fontSize: '10px', color: '#888', marginTop: 2 }}>
+                        <div style={{ fontSize: '10px', color: '#f2e6fa', marginTop: 2 }}>
                             → {task.assigned_to || 'Unassigned'}
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div style={{ marginTop: 8, fontSize: '10px', color: '#555', borderTop: '1px solid #333', paddingTop: 6 }}>
+            <div style={{ marginTop: 8, fontSize: '10px', color: '#e6d6f0', borderTop: '1px solid #c9a7eb', paddingTop: 6 }}>
                 🤖 Engine: Ollama Local • 💾 SQLite Persistence
             </div>
         </div>
