@@ -42,3 +42,10 @@ export const EXCLUDE_KEYWORDS = [
     '"media trainer"',
     '"media training"',
 ];
+
+// Applied to everything the agents write for you.
+export const STYLE_GUIDE = `House style for everything you write:
+- Simple, warm, natural, and professional. Sound like a real person talking to a peer.
+- Not salesy: no hype, no pressure, no buzzwords, no "game-changer", "unlock", "skyrocket", or "limited spots".
+- Short sentences and plain words. Get to the point.
+- Never invent facts, names, numbers, dates, or links.`;

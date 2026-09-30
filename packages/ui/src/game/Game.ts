@@ -4,7 +4,7 @@ import { OfficeState, AgentState } from './schema';
 import { eventBus } from '../events';
 
 // Named agents use the sheet matching their lowercased name; hired agents fall back to char_0.
-const SPRITE_KEYS = ['char_0', 'char_1', 'killjoy', 'raze', 'clove'];
+const SPRITE_KEYS = ['char_0', 'char_1', 'killjoy', 'raze', 'clove', 'jett'];
 
 let activeRoom: Colyseus.Room<OfficeState> | undefined;
 
@@ -40,6 +40,7 @@ export class OfficeScene extends Phaser.Scene {
     private statusText!: Phaser.GameObjects.Text;
     private followTarget: Phaser.GameObjects.Container | null = null;
     private cinematicMode = true;
+    private meetingView = false;
     private cinematicReleaseAt = 0;
     private customLayoutLayer?: Phaser.GameObjects.Container;
     private layoutItems: Array<{ id: string; type: string; x: number; y: number; label?: string }> = [];
@@ -276,6 +277,7 @@ export class OfficeScene extends Phaser.Scene {
             drawWorkstation(64, 240, '💻 Killjoy\'s Desk', true);
             drawWorkstation(64, 320, '💻 Raze\'s Desk', true);
             drawWorkstation(64, 400, '💻 Clove\'s Desk', true);
+            drawWorkstation(152, 240, '💻 Jett\'s Desk', true);
 
             // ═══════════════════════════════════════════
             //  COFFEE & PANTRY AREA
@@ -476,6 +478,36 @@ export class OfficeScene extends Phaser.Scene {
             this.cameras.main.setZoom(2);
             this.cameras.main.centerOn(gridSize / 2, gridSize / 2);
             this.cameras.main.setBounds(0, 0, gridSize, gridSize);
+
+            // Meeting room: lights up and shows you at the head of the table during a meeting.
+            const meetingGlow = this.add.graphics().setDepth(3).setVisible(false);
+            meetingGlow.fillStyle(0xf7a8c4, 0.15);
+            meetingGlow.fillRect(32, 32, 200, 160);
+            meetingGlow.lineStyle(3, 0xf28bb0, 1);
+            meetingGlow.strokeRect(30, 30, 204, 164);
+            const meetingSign = this.add.text(132, 180, '📣 Meeting in progress', {
+                fontSize: '9px', color: '#ffffff', backgroundColor: '#e58fb6', padding: { x: 4, y: 2 }
+            }).setOrigin(0.5).setDepth(6).setVisible(false);
+            const you = this.add.container(58, 118).setDepth(5).setVisible(false);
+            if (this.textures.exists('char_1')) {
+                you.add(this.add.sprite(0, -8, 'char_1', 14));
+            }
+            you.add(this.add.text(0, 10, 'You 👑', {
+                fontSize: '8px', color: '#ffffff', backgroundColor: '#c3a6eecc', padding: { x: 2, y: 1 }
+            }).setOrigin(0.5, 0));
+
+            let meetingShown = false;
+            eventBus.addEventListener('meeting-state', (event: Event) => {
+                const active = Boolean((event as CustomEvent).detail?.active);
+                if (active === meetingShown) return;
+                meetingShown = active;
+                meetingGlow.setVisible(active);
+                meetingSign.setVisible(active);
+                you.setVisible(active);
+                this.meetingView = active;
+                if (active) this.cameras.main.removeBounds();
+                else this.cameras.main.setBounds(0, 0, this.gridSize, this.gridSize);
+            });
             this.customLayoutLayer = this.add.container(0, 0);
             this.customLayoutLayer.setDepth(4);
 
@@ -698,7 +730,7 @@ export class OfficeScene extends Phaser.Scene {
 
                         // --- EMOTE BUBBLES based on action ---
                         const emoteMap: Record<string, string> = {
-                            'work': '💻', 'talk': '💬', 'idle': '😌', 'workout': '🏋️',
+                            'work': '💻', 'talk': '💬', 'idle': '😌', 'workout': '🏋️', 'break': '☕', 'meeting': '📣',
                             'use_tool': '🔧', 'move': '🚶', 'think': '💡'
                         };
                         const emote = emoteMap[agent.action] || '';
@@ -781,6 +813,16 @@ export class OfficeScene extends Phaser.Scene {
             if (this.cursors?.right.isDown || this.heldMoveKeys.has('right')) this.cameras.main.scrollX += speed;
             if (this.cursors?.up.isDown || this.heldMoveKeys.has('up')) this.cameras.main.scrollY -= speed;
             if (this.cursors?.down.isDown || this.heldMoveKeys.has('down')) this.cameras.main.scrollY += speed;
+        }
+        // During a meeting, hold the meeting room in the middle of the screen, clear of the side panels.
+        if (this.meetingView && !manualPan) {
+            const cam = this.cameras.main;
+            // Phaser zooms around the view's center, so centering on a point means scroll = point - half the view.
+            const targetX = 132 - cam.width / 2;
+            const targetY = 112 - cam.height / 2;
+            cam.scrollX += (targetX - cam.scrollX) * 0.08;
+            cam.scrollY += (targetY - cam.scrollY) * 0.08;
+            return;
         }
         // If following an agent, smoothly track them
         if (this.followTarget && !manualPan) {

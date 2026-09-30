@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FloatingPanel } from './FloatingPanel';
+import { api, cardStyle, CopyButton, inputStyle, labelStyle, primaryButton, smallButton, SubTabs } from './studioShared';
+import { CommentReplyTab, DmReplyTab, JettTab, SettingsBox } from './WriterTabs';
 
 type Segment = 'founder' | 'executive';
 type Fit = 'good' | 'maybe' | 'disqualified';
@@ -47,53 +49,6 @@ const FIT_BADGES: Record<Fit, { label: string; color: string }> = {
 };
 
 const NOTE_LIMIT = 300;
-
-const inputStyle: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 7,
-    border: '1px solid #c9a7eb', backgroundColor: '#7a5a93', color: 'white', fontSize: 11,
-    fontFamily: 'inherit',
-};
-
-const primaryButton: React.CSSProperties = {
-    border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
-    backgroundColor: '#e58fb6', color: 'white', fontWeight: 700, fontSize: 11,
-};
-
-const smallButton: React.CSSProperties = {
-    border: '1px solid rgba(255,255,255,0.25)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-    background: 'rgba(255,255,255,0.1)', color: '#f2e9ff', fontSize: 10,
-};
-
-const cardStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(247,168,196,0.35)',
-    borderRadius: 10, padding: 10, marginBottom: 8,
-};
-
-const labelStyle: React.CSSProperties = { fontSize: 10, color: '#f7c6dc', fontWeight: 700, marginTop: 6, marginBottom: 2 };
-
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-        ...init,
-        headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    });
-    const data = await response.json().catch(() => ({ ok: false, error: `Server error (${response.status})` }));
-    if (!response.ok || !data?.ok) throw new Error(data?.error || `Server error (${response.status})`);
-    return data as T;
-}
-
-function CopyButton({ text }: { text: string }) {
-    const [copied, setCopied] = useState(false);
-    const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            window.prompt('Copy this text:', text);
-        }
-    };
-    return <button style={smallButton} onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>;
-}
 
 function FilterRow({ label, values }: { label: string; values: string[] }) {
     if (values.length === 0) return null;
@@ -499,9 +454,6 @@ function CommentsTab() {
     const [postText, setPostText] = useState('');
     const [sets, setSets] = useState<CommentSet[]>([]);
     const [filter, setFilter] = useState<CommentStatus | 'all'>('drafted');
-    const [voice, setVoice] = useState('');
-    const [voiceOpen, setVoiceOpen] = useState(false);
-    const [voiceStatus, setVoiceStatus] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
 
@@ -509,19 +461,7 @@ function CommentsTab() {
         api<{ comments: CommentSet[] }>('/api/outreach/comments')
             .then((data) => setSets(data.comments))
             .catch((e) => setError(e.message));
-        api<{ voice: string }>('/api/outreach/voice')
-            .then((data) => setVoice(data.voice))
-            .catch(() => undefined);
     }, []);
-
-    const saveVoice = async () => {
-        try {
-            await api('/api/outreach/voice', { method: 'PUT', body: JSON.stringify({ voice }) });
-            setVoiceStatus('Saved. Clove will match this voice.');
-        } catch (e: any) {
-            setVoiceStatus(e.message);
-        }
-    };
 
     const draft = async () => {
         setBusy(true);
@@ -560,25 +500,8 @@ function CommentsTab() {
         <div>
             <div style={{ fontSize: 11, marginBottom: 8, color: '#e6d6f0' }}>
                 Paste a LinkedIn post from a founder or exec you want to warm up (include their name and headline if you can).
-                Clove writes 3 comment options. Pick one, tweak it, and post it yourself on LinkedIn.
+                Clove writes 3 comment options in your voice from ⚙️ Settings. Pick one, tweak it, and post it yourself on LinkedIn.
             </div>
-
-            <button style={{ ...smallButton, marginBottom: 6 }} onClick={() => setVoiceOpen((v) => !v)}>
-                {voiceOpen ? '▾' : '▸'} Your voice {voice.trim() ? '(saved)' : '(optional)'}
-            </button>
-            {voiceOpen && (
-                <div style={{ marginBottom: 8 }}>
-                    <textarea
-                        value={voice}
-                        onChange={(e) => { setVoice(e.target.value); setVoiceStatus(''); }}
-                        placeholder="Paste 3–5 comments or posts you've written so Clove sounds like you…"
-                        rows={4}
-                        style={{ ...inputStyle, resize: 'vertical', marginBottom: 4 }}
-                    />
-                    <button style={smallButton} onClick={saveVoice}>Save voice</button>
-                    {voiceStatus && <span style={{ fontSize: 10, marginLeft: 6, color: '#e6d6f0' }}>{voiceStatus}</span>}
-                </div>
-            )}
 
             <textarea
                 value={postText}
@@ -615,14 +538,38 @@ function CommentsTab() {
     );
 }
 
-export function OutreachStudio() {
-    const [tab, setTab] = useState<'leads' | 'outreach' | 'comments'>('leads');
+type MainTab = 'killjoy' | 'raze' | 'clove' | 'jett';
 
-    const tabButton = (key: 'leads' | 'outreach' | 'comments', label: string) => (
+function RazeTab() {
+    const [mode, setMode] = useState<'notes' | 'dms'>('notes');
+    return (
+        <div>
+            <SubTabs value={mode} onChange={setMode} options={[['notes', '🤝 Connection notes'], ['dms', '📨 Reply to DMs']]} />
+            <div style={{ display: mode === 'notes' ? 'block' : 'none' }}><OutreachTab /></div>
+            <div style={{ display: mode === 'dms' ? 'block' : 'none' }}><DmReplyTab /></div>
+        </div>
+    );
+}
+
+function CloveTab() {
+    const [mode, setMode] = useState<'comment' | 'reply'>('comment');
+    return (
+        <div>
+            <SubTabs value={mode} onChange={setMode} options={[['comment', "💬 Comment on posts"], ['reply', '↩️ Reply to comments']]} />
+            <div style={{ display: mode === 'comment' ? 'block' : 'none' }}><CommentsTab /></div>
+            <div style={{ display: mode === 'reply' ? 'block' : 'none' }}><CommentReplyTab /></div>
+        </div>
+    );
+}
+
+export function OutreachStudio() {
+    const [tab, setTab] = useState<MainTab>('killjoy');
+
+    const tabButton = (key: MainTab, label: string) => (
         <button
             onClick={() => setTab(key)}
             style={{
-                flex: 1, border: 'none', borderRadius: 8, padding: '7px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                flex: 1, border: 'none', borderRadius: 8, padding: '7px 4px', cursor: 'pointer', fontSize: 11, fontWeight: 700,
                 background: tab === key ? '#e58fb6' : 'rgba(255,255,255,0.1)', color: 'white',
             }}
         >
@@ -634,21 +581,24 @@ export function OutreachStudio() {
         <FloatingPanel
             id="outreach-studio"
             title="💼 Outreach Studio"
-            subtitle="Killjoy finds leads · Raze drafts outreach · Clove drafts comments · you send"
-            width={440}
+            subtitle="Your team drafts · you review and send"
+            width={480}
             defaultDock="right"
             defaultY={20}
             zIndex={20}
         >
+            <SettingsBox />
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                {tabButton('leads', '🔎 Killjoy · Leads')}
-                {tabButton('outreach', '✍️ Raze · Outreach')}
-                {tabButton('comments', '💬 Clove · Comments')}
+                {tabButton('killjoy', '🔎 Killjoy')}
+                {tabButton('raze', '✍️ Raze')}
+                {tabButton('clove', '💬 Clove')}
+                {tabButton('jett', '🚀 Jett')}
             </div>
-            <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
-                <div style={{ display: tab === 'leads' ? 'block' : 'none' }}><LeadSearchTab /></div>
-                <div style={{ display: tab === 'outreach' ? 'block' : 'none' }}><OutreachTab /></div>
-                <div style={{ display: tab === 'comments' ? 'block' : 'none' }}><CommentsTab /></div>
+            <div style={{ maxHeight: '62vh', overflowY: 'auto', paddingRight: 4 }}>
+                <div style={{ display: tab === 'killjoy' ? 'block' : 'none' }}><LeadSearchTab /></div>
+                <div style={{ display: tab === 'raze' ? 'block' : 'none' }}><RazeTab /></div>
+                <div style={{ display: tab === 'clove' ? 'block' : 'none' }}><CloveTab /></div>
+                <div style={{ display: tab === 'jett' ? 'block' : 'none' }}><JettTab /></div>
             </div>
         </FloatingPanel>
     );

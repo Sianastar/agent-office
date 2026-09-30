@@ -1,5 +1,6 @@
 import { InferenceAdapter } from '@agent-office/core';
-import { DISQUALIFIERS, EXCLUDE_KEYWORDS, IDEAL_CLIENT, PROGRAM_SUMMARY, SEGMENTS, Segment } from './profile';
+import { completeJson } from './llm';
+import { DISQUALIFIERS, EXCLUDE_KEYWORDS, IDEAL_CLIENT, PROGRAM_SUMMARY, SEGMENTS, STYLE_GUIDE, Segment } from './profile';
 import { CommentContent, CommentDraft, CommentFit, CommentOption, DraftContent, Fit, LeadSearch, OutreachDraft, OutreachStore, SavedSearch } from './OutreachStore';
 
 // Filter values as they appear in LinkedIn Sales Navigator's lead filters.
@@ -80,6 +81,8 @@ LEAD PROFILE (copied by the user from LinkedIn):
 ${leadProfile}
 """
 
+${STYLE_GUIDE}
+
 Steps:
 1. Judge fit: "good" (clearly matches the ideal client), "maybe" (partly matches, or not enough information), or "disqualified" (matches a disqualifier). Explain in one sentence.
 2. If the lead is not disqualified, write:
@@ -121,6 +124,8 @@ The user comments on posts by potential clients so those people notice them as a
 ${IDEAL_CLIENT}
 
 ${DISQUALIFIERS}
+
+${STYLE_GUIDE}
 
 ${voice}
 
@@ -173,40 +178,8 @@ Return ONLY this JSON: {"connectionNote":""}`;
         return note;
     }
 
-    private async completeJson(prompt: string, temperature: number): Promise<any> {
-        let content: string;
-        try {
-            const res = await this.adapter.complete({
-                model: this.model,
-                messages: [{ role: 'user', content: prompt }],
-                temperature,
-                format: 'json',
-            });
-            content = res.content;
-        } catch (e: any) {
-            throw new Error(this.friendlyError(e));
-        }
-
-        try {
-            return JSON.parse(content);
-        } catch {
-            const match = content.match(/\{[\s\S]*\}/);
-            if (match) {
-                try { return JSON.parse(match[0]); } catch { /* fall through */ }
-            }
-        }
-        throw new Error('The model returned something that was not valid JSON. Try again.');
-    }
-
-    private friendlyError(e: any): string {
-        const message = String(e?.message || e);
-        if (/not found/i.test(message)) {
-            return `The model "${this.model}" is not downloaded. Run: ollama pull ${this.model}`;
-        }
-        if (/fetch failed|ECONNREFUSED/i.test(message)) {
-            return 'Could not reach Ollama. Make sure the Ollama app is running.';
-        }
-        return message;
+    private completeJson(prompt: string, temperature: number): Promise<any> {
+        return completeJson(this.adapter, this.model, prompt, temperature);
     }
 
     private cleanSearch(s: any): LeadSearch {

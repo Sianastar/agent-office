@@ -65,6 +65,15 @@ export interface CommentDraft extends CommentContent {
     createdAt: string;
 }
 
+export interface StoredItem {
+    id: number;
+    kind: string;
+    title: string;
+    data: any;
+    status: string;
+    createdAt: string;
+}
+
 export class OutreachStore {
     private db?: Database;
 
@@ -107,6 +116,16 @@ export class OutreachStore {
                 status TEXT NOT NULL DEFAULT 'drafted',
                 created_at TEXT DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'drafted',
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_items_kind ON items(kind);
 
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
@@ -202,6 +221,47 @@ export class OutreachStore {
     async deleteComments(id: number): Promise<boolean> {
         const result = await this.conn.run('DELETE FROM comment_drafts WHERE id = ?', [id]);
         return (result.changes || 0) > 0;
+    }
+
+    async saveItem(kind: string, title: string, data: any): Promise<StoredItem> {
+        const result = await this.conn.run(
+            'INSERT INTO items (kind, title, data_json) VALUES (?, ?, ?)',
+            [kind, title, JSON.stringify(data)]
+        );
+        const row = await this.conn.get('SELECT * FROM items WHERE id = ?', [result.lastID]);
+        return this.toItem(row);
+    }
+
+    async listItems(kind: string, limit = 200): Promise<StoredItem[]> {
+        const rows = await this.conn.all('SELECT * FROM items WHERE kind = ? ORDER BY id DESC LIMIT ?', [kind, limit]);
+        return rows.map((r) => this.toItem(r));
+    }
+
+    async updateItem(id: number, fields: { status?: string; data?: any }): Promise<StoredItem | null> {
+        if (fields.status !== undefined) {
+            await this.conn.run('UPDATE items SET status = ? WHERE id = ?', [fields.status, id]);
+        }
+        if (fields.data !== undefined) {
+            await this.conn.run('UPDATE items SET data_json = ? WHERE id = ?', [JSON.stringify(fields.data), id]);
+        }
+        const row = await this.conn.get('SELECT * FROM items WHERE id = ?', [id]);
+        return row ? this.toItem(row) : null;
+    }
+
+    async deleteItem(id: number): Promise<boolean> {
+        const result = await this.conn.run('DELETE FROM items WHERE id = ?', [id]);
+        return (result.changes || 0) > 0;
+    }
+
+    private toItem(row: any): StoredItem {
+        return {
+            id: row.id,
+            kind: row.kind,
+            title: row.title,
+            data: JSON.parse(row.data_json),
+            status: row.status,
+            createdAt: row.created_at,
+        };
     }
 
     async getSetting(key: string): Promise<string> {

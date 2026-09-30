@@ -10,7 +10,7 @@ interface LogEntry {
 }
 
 const actionIcons: Record<string, string> = {
-    'work': '💻', 'talk': '💬', 'idle': '😌', 'workout': '🏋️',
+    'work': '💻', 'talk': '💬', 'idle': '😌', 'workout': '🏋️', 'break': '☕', 'meeting': '📣',
     'use_tool': '🔧', 'move': '🚶', 'think': '💡'
 };
 

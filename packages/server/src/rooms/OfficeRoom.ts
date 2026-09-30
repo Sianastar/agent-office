@@ -5,6 +5,11 @@ import { OllamaAdapter } from '@agent-office/adapters';
 import { ToolExecutor } from '../tools/ToolExecutor';
 import { MemoryStore } from '../memory/MemoryStore';
 import { AGENT_MODEL, OLLAMA_URL } from '../config';
+import { TEAM } from '../team';
+
+const BREAK_MS = 60_000;
+const JOBS_BEFORE_BREAK = 4;
+const RISK_BREAK_THRESHOLD = 0.7;
 
 interface HighlightEvent {
     type: string;
@@ -48,6 +53,7 @@ export class OfficeRoom extends Room<OfficeState> {
         'killjoy-desk': { x: 5, y: 18, type: 'desk' },
         'raze-desk': { x: 5, y: 23, type: 'desk' },
         'clove-desk': { x: 5, y: 28, type: 'desk' },
+        'jett-desk': { x: 11, y: 18, type: 'desk' },
         'meeting-table': { x: 10, y: 5, type: 'table' },
         'coffee-machine': { x: 25, y: 25, type: 'appliance' },
         'whiteboard': { x: 17, y: 3, type: 'board' },
@@ -75,12 +81,85 @@ export class OfficeRoom extends Room<OfficeState> {
         return this.gymSpots[Math.max(0, index) % this.gymSpots.length];
     }
 
+    private meetingSeats: Array<{ x: number; y: number }> = [
+        { x: 5, y: 9 }, { x: 8, y: 9 }, { x: 11, y: 9 },
+        { x: 8, y: 4 }, { x: 5, y: 4 }, { x: 11, y: 4 },
+    ];
+
+    private coffeeSpots: Array<{ x: number; y: number }> = [
+        { x: 24, y: 26 }, { x: 27, y: 26 }, { x: 23, y: 28 }, { x: 27, y: 28 }, { x: 29, y: 25 },
+    ];
+
+    private spotFor(agentId: string, spots: Array<{ x: number; y: number }>): { x: number; y: number } {
+        const index = Array.from(this.state.agents.keys()).indexOf(agentId);
+        return spots[Math.max(0, index) % spots.length];
+    }
+
     private busyAgents: Set<string> = new Set();
+    private meetingActive = false;
+    private breakUntil: Map<string, number> = new Map();
+    private jobsSinceBreak: Map<string, number> = new Map();
+
+    isMeetingActive(): boolean {
+        return this.meetingActive;
+    }
+
+    agentsOnBreak(): string[] {
+        const now = Date.now();
+        return Array.from(this.breakUntil.entries()).filter(([, until]) => until > now).map(([id]) => id);
+    }
+
+    setMeeting(active: boolean) {
+        if (this.meetingActive === active) return;
+        this.meetingActive = active;
+        if (active) {
+            this.breakUntil.clear();
+            this.state.agents.forEach((agent) => { agent.action = 'meeting'; });
+            this.broadcast('chat', { sender: 'System', text: '📣 Team meeting! Everyone is heading to the meeting room.' });
+        } else {
+            this.state.agents.forEach((agent) => { if (agent.action === 'meeting') agent.action = 'idle'; });
+            this.broadcast('chat', { sender: 'System', text: '👋 Meeting over. Back to work, team!' });
+        }
+    }
+
+    sayToTeam(text: string) {
+        this.broadcast('chat', { sender: 'You', text: `📣 ${text}` });
+        this.coreAgents.forEach((agent) => {
+            agent.receiveMessage({ from: 'Your boss', to: agent.config.name, content: text, timestamp: this.state.officeTime });
+        });
+    }
+
+    // A break clears built-up chatter so the agent's next thoughts start from a clean slate.
+    startBreak(agentId: string, reason: string) {
+        const coreAgent = this.coreAgents.get(agentId);
+        const agentState = this.state.agents.get(agentId);
+        if (!coreAgent || !agentState || this.busyAgents.has(agentId)) return;
+        this.breakUntil.set(agentId, Date.now() + BREAK_MS);
+        this.jobsSinceBreak.set(agentId, 0);
+        coreAgent.clearInbox();
+        coreAgent.memories = [...coreAgent.memories]
+            .sort((a, b) => b.importance - a.importance)
+            .slice(0, 10);
+        agentState.action = 'break';
+        agentState.riskLevel = this.clamp01(agentState.riskLevel * 0.5);
+        this.broadcast('chat', { sender: 'System', text: `☕ ${coreAgent.config.name} is taking a coffee break ${reason}.` });
+    }
+
+    private onBreak(agentId: string): boolean {
+        const until = this.breakUntil.get(agentId);
+        if (!until) return false;
+        if (until > Date.now()) return true;
+        this.breakUntil.delete(agentId);
+        const agentState = this.state.agents.get(agentId);
+        if (agentState && agentState.action === 'break') agentState.action = 'idle';
+        return false;
+    }
 
     startAgentJob(agentId: string, task: string, announcement: string) {
         const coreAgent = this.coreAgents.get(agentId);
         const agentState = this.state.agents.get(agentId);
         if (!coreAgent || !agentState) return;
+        this.breakUntil.delete(agentId);
         this.busyAgents.add(agentId);
         coreAgent.currentTask = task;
         agentState.currentTask = task;
@@ -96,6 +175,12 @@ export class OfficeRoom extends Room<OfficeState> {
         coreAgent.currentTask = '';
         agentState.currentTask = '';
         this.broadcast('chat', { sender: coreAgent.config.name, text: announcement });
+
+        const jobs = (this.jobsSinceBreak.get(agentId) || 0) + 1;
+        this.jobsSinceBreak.set(agentId, jobs);
+        if (jobs >= JOBS_BEFORE_BREAK && !this.meetingActive) {
+            this.startBreak(agentId, `after ${jobs} jobs in a row, to reset and stay sharp`);
+        }
     }
 
     static getActiveRoom(): OfficeRoom | null {
@@ -162,9 +247,9 @@ export class OfficeRoom extends Room<OfficeState> {
             this.thinkingLocks.set(id, false);
         };
 
-        await setupCoreAgent('killjoy', 'Killjoy', 'Lead Researcher', 'You build LinkedIn Sales Navigator searches that find founders and senior executives with deep expertise but low visibility.', 10, 10);
-        await setupCoreAgent('raze', 'Raze', 'Outreach Writer', 'You screen leads and draft warm LinkedIn connection notes and follow-up messages for a confidence and presence coaching program.', 20, 15);
-        await setupCoreAgent('clove', 'Clove', 'Engagement Writer', 'You draft thoughtful LinkedIn comments on posts by founders and executives so the user stays visible to future clients.', 15, 12);
+        for (const [id, member] of Object.entries(TEAM)) {
+            await setupCoreAgent(id, member.name, member.role, member.job, member.spawn.x, member.spawn.y);
+        }
         this.rebuildRelationshipGraph();
         const savedLayout = await this.memoryStore.loadLayout('default');
         this.currentLayout = Array.isArray(savedLayout) ? savedLayout : [];
@@ -279,8 +364,32 @@ export class OfficeRoom extends Room<OfficeState> {
                     recentMessages: coreAgent.getUnreadMessages(),
                     memories: coreAgent.getRecentMemories(5)
                 }).then(async (decision) => {
-                    if (this.busyAgents.has(id) && decision.action === 'workout') {
+                    if (this.busyAgents.has(id) && (decision.action === 'workout' || decision.action === 'break')) {
                         decision.action = 'work';
+                    }
+                    if (this.meetingActive) {
+                        if (decision.thought) agentState.thought = decision.thought;
+                        if (decision.action === 'talk' && decision.message) {
+                            this.broadcast('chat', { sender: coreAgent.config.name, text: `💬 ${decision.message}` });
+                        }
+                        coreAgent.clearInbox();
+                        setTimeout(() => this.thinkingLocks.set(id, false), 15000);
+                        return;
+                    }
+                    if (this.onBreak(id)) {
+                        if (decision.thought) agentState.thought = decision.thought;
+                        setTimeout(() => this.thinkingLocks.set(id, false), 15000);
+                        return;
+                    }
+                    if (decision.action === 'break') {
+                        this.startBreak(id, 'to recharge');
+                        setTimeout(() => this.thinkingLocks.set(id, false), 15000);
+                        return;
+                    }
+                    if (agentState.riskLevel >= RISK_BREAK_THRESHOLD && !this.busyAgents.has(id)) {
+                        this.startBreak(id, 'because their risk level is high, to reset before it causes mistakes');
+                        setTimeout(() => this.thinkingLocks.set(id, false), 15000);
+                        return;
                     }
                     const previousAction = agentState.action;
                     agentState.action = decision.action;
@@ -497,12 +606,16 @@ export class OfficeRoom extends Room<OfficeState> {
                 const deskKey = `${key}-desk`;
                 let target: { x: number; y: number } = this.furnitureTargets[deskKey] || { x: 5, y: 18 };
                 const bored = agent.action === 'idle' && !agent.currentTask;
-                if (agent.action === 'workout' || bored) {
+                if (this.meetingActive) {
+                    target = this.spotFor(key, this.meetingSeats);
+                } else if (this.onBreak(key)) {
+                    target = this.spotFor(key, this.coffeeSpots);
+                } else if (agent.action === 'workout' || bored) {
                     target = this.gymSpotFor(key);
                 }
 
                 // If agent action is 'talk', move towards the other agent instead
-                if (agent.action === 'talk') {
+                if (agent.action === 'talk' && !this.meetingActive) {
                     let closest: { x: number; y: number } | null = null;
                     let minDist = Infinity;
                     this.state.agents.forEach((other, otherKey) => {
@@ -563,7 +676,7 @@ export class OfficeRoom extends Room<OfficeState> {
 
         state.momentum = this.clamp01(state.momentum + actionBoost + jitter);
         state.riskLevel = this.clamp01(state.riskLevel + (action === 'use_tool' ? 0.02 : -0.004) + jitter);
-        state.mood = this.clamp01(state.mood + (action === 'talk' ? 0.02 : action === 'workout' ? 0.03 : -0.002) + jitter);
+        state.mood = this.clamp01(state.mood + (action === 'talk' ? 0.02 : action === 'workout' || action === 'break' ? 0.03 : -0.002) + jitter);
         state.reputation = this.clamp01(state.reputation + (action === 'work' ? 0.015 : 0.001) + jitter / 2);
     }
 
