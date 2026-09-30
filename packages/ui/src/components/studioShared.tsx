@@ -60,6 +60,7 @@ export interface StoredItem {
 export interface DraftOption {
     label: string;
     text: string;
+    warning?: string;
 }
 
 export function SubTabs<T extends string>({ value, onChange, options }: {
@@ -105,10 +106,11 @@ export function useItems(kind: string) {
     return { items, error, setError, add, replace, remove };
 }
 
-export function ItemCard({ item, subtitle, context, getOptions, setOptions, doneStatus, doneLabel, onChange, onDelete }: {
+export function ItemCard({ item, subtitle, context, notes, getOptions, setOptions, doneStatus, doneLabel, onChange, onDelete }: {
     item: StoredItem;
     subtitle?: string;
     context?: string;
+    notes?: string[];
     getOptions: (data: any) => DraftOption[];
     setOptions: (data: any, texts: string[]) => any;
     doneStatus: string;
@@ -146,10 +148,19 @@ export function ItemCard({ item, subtitle, context, getOptions, setOptions, done
                     {excerpt}
                 </div>
             )}
+            {notes && notes.length > 0 && (
+                <div style={{ fontSize: 10, marginTop: 6, color: '#e6d6f0' }}>
+                    <strong style={{ color: '#f7c6dc' }}>What Raze fixed:</strong>
+                    {notes.map((n, i) => <div key={i}>• {n}</div>)}
+                </div>
+            )}
             {options.map((o, i) => (
                 <div key={i}>
                     <div style={{ ...labelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{o.label}</span>
+                        <span>
+                            {o.label}
+                            {o.warning && <span style={{ color: '#ffd166', fontWeight: 400 }}> ⚠️ {o.warning}</span>}
+                        </span>
                         <CopyButton text={texts[i]} />
                     </div>
                     <textarea

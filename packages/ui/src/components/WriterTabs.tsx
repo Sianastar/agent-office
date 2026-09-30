@@ -8,7 +8,7 @@ interface Settings {
 }
 
 const optionList = (labels: Record<string, string>) => (data: any): DraftOption[] =>
-    (data.options || []).map((o: any) => ({ label: labels[o.style] || 'Option', text: o.text }));
+    (data.options || []).map((o: any) => ({ label: labels[o.style] || 'Option', text: o.text, warning: o.warning }));
 
 const withOptionTexts = (data: any, texts: string[]) => ({
     ...data,
@@ -267,6 +267,127 @@ export function JettTab() {
                     setOptions={(data, texts) => ({ ...data, text: texts[0] })}
                     doneStatus="posted"
                     doneLabel="Posted"
+                    onChange={replace}
+                    onDelete={() => remove(item.id)}
+                />
+            ))}
+        </div>
+    );
+}
+
+export function IntentReplyTab() {
+    const { items, error, setError, add, replace, remove } = useItems('intent_reply');
+    const [from, setFrom] = useState('');
+    const [message, setMessage] = useState('');
+    const [intent, setIntent] = useState('');
+    const [filter, setFilter] = useState('drafted');
+    const [busy, setBusy] = useState(false);
+
+    const draft = async () => {
+        setBusy(true);
+        setError('');
+        try {
+            const d = await api<{ item: StoredItem }>('/api/outreach/intent-replies', { method: 'POST', body: JSON.stringify({ from, message, intent }) });
+            add(d.item);
+            setFrom('');
+            setMessage('');
+            setIntent('');
+            setFilter('drafted');
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const visible = items.filter((i) => filter === 'all' || i.status === filter);
+    return (
+        <div>
+            <Hint>Paste the message you got, then type roughly what you want to say. Raze turns it into a clear, warm reply.</Hint>
+            <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Message from (name)" style={{ ...inputStyle, marginBottom: 6 }} />
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Their message, e.g. Can you clarify the central time for today's live?" rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: 6 }} />
+            <textarea value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="What you want to say, e.g. it will be at 11am cst" rows={2} style={{ ...inputStyle, resize: 'vertical', marginBottom: 6 }} />
+            <Busy busy={busy} idle="↩️ Ask Raze to write it" working="Raze is writing… (can take a minute)" disabled={message.trim().length < 2 || intent.trim().length < 2} onClick={draft} />
+            {error && <div style={{ fontSize: 11, color: '#ffadad', marginTop: 6 }}>{error}</div>}
+            <StatusFilter items={items} value={filter} onChange={setFilter} doneStatus="sent" doneLabel="Sent" />
+            {visible.length === 0 && <div style={{ fontSize: 11, fontStyle: 'italic', color: '#e6d6f0' }}>Nothing here yet.</div>}
+            {visible.map((item) => (
+                <ItemCard
+                    key={item.id}
+                    item={item}
+                    subtitle={`You wanted to say: ${item.data.intent}`}
+                    context={item.data.message}
+                    getOptions={optionList({ friendly: '😊 Friendly', brief: '⚡ Brief' })}
+                    setOptions={withOptionTexts}
+                    doneStatus="sent"
+                    doneLabel="Sent"
+                    onChange={replace}
+                    onDelete={() => remove(item.id)}
+                />
+            ))}
+        </div>
+    );
+}
+
+const TONE_OPTIONS: Array<[string, string]> = [
+    ['polite and warm', '🌸 Polite & warm'],
+    ['friendly and casual', '😊 Friendly & casual'],
+    ['professional and formal', '💼 Professional & formal'],
+    ['confident and direct', '💪 Confident & direct'],
+];
+
+export function PolishTab() {
+    const { items, error, setError, add, replace, remove } = useItems('polish');
+    const [draftText, setDraftText] = useState('');
+    const [audience, setAudience] = useState('');
+    const [tone, setTone] = useState(TONE_OPTIONS[0][0]);
+    const [filter, setFilter] = useState('drafted');
+    const [busy, setBusy] = useState(false);
+
+    const polish = async () => {
+        setBusy(true);
+        setError('');
+        try {
+            const d = await api<{ item: StoredItem }>('/api/outreach/polish', { method: 'POST', body: JSON.stringify({ draft: draftText, audience, tone }) });
+            add(d.item);
+            setDraftText('');
+            setFilter('drafted');
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const visible = items.filter((i) => filter === 'all' || i.status === filter);
+    return (
+        <div>
+            <Hint>
+                Type your message, or describe it (like "I want to tell my boss that…"). Raze checks your grammar and gives you
+                3 versions: your words corrected, a polished one, and a short one.
+            </Hint>
+            <textarea value={draftText} onChange={(e) => setDraftText(e.target.value)} placeholder="Type your message or what you want to say…" rows={5} style={{ ...inputStyle, resize: 'vertical', marginBottom: 6 }} />
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Who is it for? (e.g. my boss)" style={inputStyle} />
+                <select value={tone} onChange={(e) => setTone(e.target.value)} style={{ ...inputStyle, width: 190 }}>
+                    {TONE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+            </div>
+            <Busy busy={busy} idle="✨ Ask Raze to polish it" working="Raze is polishing… (can take a minute)" disabled={draftText.trim().length < 3} onClick={polish} />
+            {error && <div style={{ fontSize: 11, color: '#ffadad', marginTop: 6 }}>{error}</div>}
+            <StatusFilter items={items} value={filter} onChange={setFilter} doneStatus="sent" doneLabel="Sent" />
+            {visible.length === 0 && <div style={{ fontSize: 11, fontStyle: 'italic', color: '#e6d6f0' }}>Nothing here yet.</div>}
+            {visible.map((item) => (
+                <ItemCard
+                    key={item.id}
+                    item={item}
+                    subtitle={[item.data.audience && `For ${item.data.audience}`, item.data.tone].filter(Boolean).join(' · ')}
+                    context={item.data.draft}
+                    notes={item.data.notes}
+                    getOptions={optionList({ corrected: '✅ Your words, corrected', polished: '✨ Polished', short: '⚡ Short' })}
+                    setOptions={withOptionTexts}
+                    doneStatus="sent"
+                    doneLabel="Sent"
                     onChange={replace}
                     onDelete={() => remove(item.id)}
                 />

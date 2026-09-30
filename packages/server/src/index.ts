@@ -7,7 +7,7 @@ import { AGENT_MODEL, OLLAMA_URL } from './config';
 import { OutreachStore, DraftStatus, CommentStatus, CommentOption } from './outreach/OutreachStore';
 import { OutreachService } from './outreach/OutreachService';
 import { SEGMENTS, Segment } from './outreach/profile';
-import { WritingService, WriterSettings, COMMUNITY_TYPES, CommunityType, TimeZone } from './outreach/WritingService';
+import { WritingService, WriterSettings, COMMUNITY_TYPES, CommunityType, TimeZone, TONES } from './outreach/WritingService';
 import { TEAM, isTeamMember } from './team';
 
 // Setup Express
@@ -49,7 +49,7 @@ const isSegment = (value: any): value is Segment => typeof value === 'string' &&
 const DRAFT_STATUSES: DraftStatus[] = ['drafted', 'sent', 'skipped'];
 const COMMENT_STATUSES: CommentStatus[] = ['drafted', 'posted', 'skipped'];
 const SETTING_KEYS = { myName: 'my_name', calendly: 'calendly_link', voice: 'voice_samples' };
-const ITEM_KINDS = ['dm_reply', 'comment_reply', 'community', 'agent_task'];
+const ITEM_KINDS = ['dm_reply', 'comment_reply', 'community', 'agent_task', 'intent_reply', 'polish'];
 const ITEM_STATUSES = ['drafted', 'sent', 'posted', 'skipped'];
 
 async function loadSettings(): Promise<WriterSettings> {
@@ -269,6 +269,32 @@ app.post('/api/outreach/dm-replies', route(async (req, res) => {
     await runAgentJob(res, 'raze', 'Drafting a DM reply', '📨 Reading this conversation and drafting replies...',
         () => writer.draftDmReply(thread, notes, settings),
         (item) => `✅ Two reply options for ${item.title} are ready.`);
+}));
+
+app.post('/api/outreach/intent-replies', route(async (req, res) => {
+    const message = text(req.body?.message, 6000);
+    const intent = text(req.body?.intent, 2000);
+    if (message.length < 2 || intent.length < 2) {
+        res.status(400).json({ ok: false, error: 'Paste the message you got and type what you want to say.' });
+        return;
+    }
+    const settings = await loadSettings();
+    await runAgentJob(res, 'raze', 'Writing a reply your way', '↩️ Turning your notes into a reply...',
+        () => writer.draftReplyWithIntent(text(req.body?.from, 100), message, intent, settings),
+        () => '✅ Your reply options are ready.');
+}));
+
+app.post('/api/outreach/polish', route(async (req, res) => {
+    const draft = text(req.body?.draft, 6000);
+    if (draft.length < 3) {
+        res.status(400).json({ ok: false, error: 'Type the message you want Raze to polish.' });
+        return;
+    }
+    const tone = TONES.includes(req.body?.tone) ? req.body.tone : TONES[0];
+    const settings = await loadSettings();
+    await runAgentJob(res, 'raze', 'Polishing a message', '✨ Polishing your message...',
+        () => writer.polishMessage(draft, text(req.body?.audience, 100), tone, settings),
+        () => '✅ Your polished message is ready.');
 }));
 
 app.post('/api/outreach/comment-replies', route(async (req, res) => {

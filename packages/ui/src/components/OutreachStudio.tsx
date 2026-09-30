@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FloatingPanel } from './FloatingPanel';
 import { api, cardStyle, CopyButton, inputStyle, labelStyle, primaryButton, smallButton, SubTabs } from './studioShared';
-import { CommentReplyTab, DmReplyTab, JettTab, SettingsBox } from './WriterTabs';
+import { CommentReplyTab, DmReplyTab, IntentReplyTab, JettTab, PolishTab, SettingsBox } from './WriterTabs';
 
 type Segment = 'founder' | 'executive';
 type Fit = 'good' | 'maybe' | 'disqualified';
@@ -541,12 +541,18 @@ function CommentsTab() {
 type MainTab = 'killjoy' | 'raze' | 'clove' | 'jett';
 
 function RazeTab() {
-    const [mode, setMode] = useState<'notes' | 'dms'>('notes');
+    const [mode, setMode] = useState<'notes' | 'dms' | 'intent' | 'polish'>('notes');
     return (
         <div>
-            <SubTabs value={mode} onChange={setMode} options={[['notes', '🤝 Connection notes'], ['dms', '📨 Reply to DMs']]} />
+            <SubTabs
+                value={mode}
+                onChange={setMode}
+                options={[['notes', '🤝 Notes'], ['dms', '📨 DM replies'], ['intent', '↩️ Reply my way'], ['polish', '✨ Polish']]}
+            />
             <div style={{ display: mode === 'notes' ? 'block' : 'none' }}><OutreachTab /></div>
             <div style={{ display: mode === 'dms' ? 'block' : 'none' }}><DmReplyTab /></div>
+            <div style={{ display: mode === 'intent' ? 'block' : 'none' }}><IntentReplyTab /></div>
+            <div style={{ display: mode === 'polish' ? 'block' : 'none' }}><PolishTab /></div>
         </div>
     );
 }

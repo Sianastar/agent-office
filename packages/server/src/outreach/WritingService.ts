@@ -13,6 +13,7 @@ export interface WriterSettings {
 export type CommunityType = 'announcement' | 'inbox' | 'reminder' | 'welcome' | 'other';
 export const COMMUNITY_TYPES: CommunityType[] = ['announcement', 'inbox', 'reminder', 'welcome', 'other'];
 export type TimeZone = 'PT' | 'CT' | 'ET';
+export const TONES = ['polite and warm', 'friendly and casual', 'professional and formal', 'confident and direct'];
 
 export interface CommunityRequest {
     type: CommunityType;
@@ -199,6 +200,81 @@ Return ONLY this JSON:
         return this.store.saveItem('community', title, { type: req.type, brief: req.brief, text });
     }
 
+    async draftReplyWithIntent(from: string, message: string, intent: string, settings: WriterSettings): Promise<StoredItem> {
+        const me = settings.myName || 'the user';
+        const prompt = `You are Raze. You turn the user's quick, rough answer into a clear, warm reply to a message they received. The user is ${me}.
+
+${STYLE_GUIDE}
+
+${voiceBlock(settings.voice)}
+
+THE MESSAGE THEY RECEIVED${from ? ` FROM ${from}` : ''}:
+"""
+${message}
+"""
+
+WHAT THE USER WANTS TO SAY (rough notes, may have typos):
+"""
+${intent}
+"""
+
+Write 2 reply options:
+1. "friendly": warm and complete, 1 to 3 short sentences. Greet them by first name if you know it.
+2. "brief": short and clear, 1 or 2 sentences.
+
+Rules:
+- Say exactly what the user wants to say. Keep every fact (times, dates, time zones, numbers, names, links) as the user gave it. You may format it neatly, for example "11am cst" becomes "11:00 AM CT".
+- Do not add new information, promises, or questions the user did not ask for. A natural closing like "See you there!" is fine when it fits.
+- Fix grammar and spelling.
+- This is a chat message: no subject line and no sign-off.
+
+Return ONLY this JSON:
+{"options":[{"style":"friendly","text":""},{"style":"brief","text":""}]}`;
+
+        const data = await completeJson(this.adapter, this.model, prompt, 0.6);
+        const options = checkedOptions(data?.options, intent);
+        if (options.length === 0) throw new Error('Raze could not write that reply. Try again.');
+        return this.store.saveItem('intent_reply', from || 'Reply', { from, message, intent, options });
+    }
+
+    async polishMessage(draft: string, audience: string, tone: string, settings: WriterSettings): Promise<StoredItem> {
+        const prompt = `You are Raze. You help the user say things clearly and politely. They wrote a rough message and want help with grammar and wording.
+
+${STYLE_GUIDE}
+
+${voiceBlock(settings.voice)}
+
+WHO IT IS FOR: ${audience || 'not specified'}
+TONE THEY WANT: ${tone}
+
+THEIR ROUGH MESSAGE (it may be a description like "I want to tell my boss that..."):
+"""
+${draft}
+"""
+
+First work out what they want to say and to whom. If they described the message instead of writing it, write the message itself in the first person, addressed to that person.
+
+Then write 3 versions:
+1. "corrected": their own wording with only grammar, spelling, and punctuation fixed (or, if they described the message, a direct version that stays as close to their words as possible).
+2. "polished": clear, well organized, and ${tone}. Natural, not robotic.
+3. "short": the same message in as few words as possible, still ${tone}.
+
+Also give up to 4 short notes on what you fixed or changed, for example "Fixed 'there' to 'their'".
+
+Rules:
+- Keep every fact exactly (times, dates, numbers, names, links).
+- Do not add new claims, promises, excuses, or dates.
+
+Return ONLY this JSON:
+{"summary":"one line: what the message is about and who it is for","options":[{"style":"corrected","text":""},{"style":"polished","text":""},{"style":"short","text":""}],"notes":[""]}`;
+
+        const data = await completeJson(this.adapter, this.model, prompt, 0.5);
+        const options = checkedOptions(data?.options, draft);
+        if (options.length === 0) throw new Error('Raze could not polish that message. Try again.');
+        const notes = (Array.isArray(data?.notes) ? data.notes : []).map((n: any) => str(n)).filter(Boolean).slice(0, 4);
+        return this.store.saveItem('polish', str(data?.summary) || draft.slice(0, 60), { draft, audience, tone, options, notes });
+    }
+
     async doAgentTask(agentId: string, task: string, settings: WriterSettings): Promise<StoredItem> {
         const member = TEAM[agentId];
         const prompt = `You are ${member.name}, the ${member.role} on the user's team. ${member.job}
@@ -241,8 +317,34 @@ function voiceBlock(voice: string): string {
 }
 
 // Removes URLs the model made up, along with a lead-in ("Book here:") that pointed at them.
-function stripUrls(text: string): string {
-    return text
+// Cleans model options, keeps links the user wrote, and flags any version missing a number the user gave.
+function checkedOptions(raw: any, userText: string): Array<{ style: string; text: string; warning?: string }> {
+    const numbers = Array.from(new Set(userText.match(/\d+/g) || []));
+    return (Array.isArray(raw) ? raw : [])
+        .map((o: any) => {
+            const text = stripUrls(str(o?.text), userText);
+            const missing = numbers.filter((n) => !text.includes(n));
+            return {
+                style: str(o?.style) || 'option',
+                text,
+                ...(missing.length > 0 ? { warning: `double-check: ${missing.join(', ')} is missing` } : {}),
+            };
+        })
+        .filter((o: { text: string }) => o.text)
+        .slice(0, 3);
+}
+
+function stripUrls(text: string, allowedFrom = ''): string {
+    const allowed = allowedFrom.match(URL_PATTERN) || [];
+    const kept: string[] = [];
+    let protectedText = text;
+    allowed.forEach((url) => {
+        if (protectedText.includes(url)) {
+            protectedText = protectedText.split(url).join(`\u0000${kept.length}\u0000`);
+            kept.push(url);
+        }
+    });
+    const cleaned = protectedText
         .replace(/(^|\n)[^\n]*:[ \t]*\n[ \t]*https?:\/\/\S+[ \t]*(?=\n|$)/g, '$1')
         .replace(/[ \t]*[^\n.!?]*:[ \t]*https?:\/\/\S+/g, '')
         .replace(URL_PATTERN, '')
@@ -250,6 +352,7 @@ function stripUrls(text: string): string {
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
+    return cleaned.replace(/\u0000(\d+)\u0000/g, (_, i) => kept[Number(i)]);
 }
 
 function format12h(hours24: number, minutes: number): string {
