@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getColyseusRoom } from '../game/Game';
+import { FloatingPanel } from './FloatingPanel';
 
 interface TaskItem {
     id: number;
@@ -63,18 +64,8 @@ export function TaskBoard() {
     };
 
     return (
-        <div style={{
-            position: 'absolute', left: 20, top: 20, width: 280,
-            backgroundColor: 'rgba(92,62,112,0.92)', color: 'white',
-            padding: 16, borderRadius: 12,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(247,168,196,0.5)',
-            maxHeight: '50vh', display: 'flex', flexDirection: 'column'
-        }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                📋 Task Board
-            </h3>
+        <FloatingPanel id="task-board" title="📋 Task Board" width={280} defaultDock="left" defaultY={20} zIndex={16}>
+        <div style={{ maxHeight: '45vh', display: 'flex', flexDirection: 'column' }}>
 
             {/* Task Assignment Form */}
             <form onSubmit={handleSubmit} style={{ marginBottom: 10 }}>
@@ -143,5 +134,6 @@ export function TaskBoard() {
                 🤖 Engine: Ollama Local • 💾 SQLite Persistence
             </div>
         </div>
+        </FloatingPanel>
     );
 }

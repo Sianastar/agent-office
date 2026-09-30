@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { eventBus } from '../events';
 import { getColyseusRoom } from '../game/Game';
+import { FloatingPanel } from './FloatingPanel';
 
 export function ChatPanel() {
     const [messages, setMessages] = useState<{ sender: string, text: string }[]>([
@@ -33,8 +34,15 @@ export function ChatPanel() {
     };
 
     return (
-        <div style={{ position: 'absolute', right: 20, bottom: 20, width: 300, height: 400, backgroundColor: 'rgba(92,62,112,0.9)', color: 'white', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>Office Chat</h3>
+        <FloatingPanel
+            id="office-chat"
+            title="💬 Office Chat"
+            width={300}
+            defaultDock="right"
+            defaultY={typeof window === 'undefined' ? 400 : Math.max(20, window.innerHeight - 400)}
+            zIndex={17}
+        >
+        <div style={{ height: 320, display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, overflowY: 'auto', fontSize: '14px', marginBottom: 10, paddingRight: 4 }}>
                 {messages.map((m, i) => (
                     <p key={i} style={{ margin: '6px 0', lineHeight: '1.4' }}>
@@ -49,8 +57,9 @@ export function ChatPanel() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && send()}
-                style={{ width: '100%', padding: '10px', boxSizing: 'border-box', background: '#333', color: 'white', border: '1px solid #c9a7eb', borderRadius: 4, outline: 'none' }}
+                style={{ width: '100%', padding: '10px', boxSizing: 'border-box', background: '#7a5a93', color: 'white', border: '1px solid #c9a7eb', borderRadius: 6, outline: 'none' }}
             />
         </div>
+        </FloatingPanel>
     );
 }

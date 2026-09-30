@@ -41,6 +41,7 @@ export class OfficeScene extends Phaser.Scene {
     private followTarget: Phaser.GameObjects.Container | null = null;
     private cinematicMode = true;
     private meetingView = false;
+    private fitView = false;
     private cinematicReleaseAt = 0;
     private customLayoutLayer?: Phaser.GameObjects.Container;
     private layoutItems: Array<{ id: string; type: string; x: number; y: number; label?: string }> = [];
@@ -496,6 +497,20 @@ export class OfficeScene extends Phaser.Scene {
                 fontSize: '8px', color: '#ffffff', backgroundColor: '#c3a6eecc', padding: { x: 2, y: 1 }
             }).setOrigin(0.5, 0));
 
+            eventBus.addEventListener('camera-fit', (event: Event) => {
+                const cam = this.cameras.main;
+                this.fitView = Boolean((event as CustomEvent).detail?.fit);
+                if (this.fitView) {
+                    cam.removeBounds();
+                    cam.setZoom(Math.min(cam.width, cam.height) / this.gridSize * 0.95);
+                    cam.centerOn(this.gridSize / 2, this.gridSize / 2);
+                } else {
+                    cam.setZoom(2);
+                    if (!this.meetingView) cam.setBounds(0, 0, this.gridSize, this.gridSize);
+                    cam.centerOn(this.gridSize / 2, this.gridSize / 2);
+                }
+            });
+
             let meetingShown = false;
             eventBus.addEventListener('meeting-state', (event: Event) => {
                 const active = Boolean((event as CustomEvent).detail?.active);
@@ -506,7 +521,7 @@ export class OfficeScene extends Phaser.Scene {
                 you.setVisible(active);
                 this.meetingView = active;
                 if (active) this.cameras.main.removeBounds();
-                else this.cameras.main.setBounds(0, 0, this.gridSize, this.gridSize);
+                else if (!this.fitView) this.cameras.main.setBounds(0, 0, this.gridSize, this.gridSize);
             });
             this.customLayoutLayer = this.add.container(0, 0);
             this.customLayoutLayer.setDepth(4);
@@ -814,6 +829,7 @@ export class OfficeScene extends Phaser.Scene {
             if (this.cursors?.up.isDown || this.heldMoveKeys.has('up')) this.cameras.main.scrollY -= speed;
             if (this.cursors?.down.isDown || this.heldMoveKeys.has('down')) this.cameras.main.scrollY += speed;
         }
+        if (this.fitView) return;
         // During a meeting, hold the meeting room in the middle of the screen, clear of the side panels.
         if (this.meetingView && !manualPan) {
             const cam = this.cameras.main;

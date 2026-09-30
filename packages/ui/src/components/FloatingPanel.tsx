@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { eventBus } from '../events';
 
 type Position = { x: number; y: number };
 
@@ -71,6 +72,12 @@ export function FloatingPanel({
     const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
 
     useEffect(() => {
+        const minimizeAll = () => setMinimized(true);
+        eventBus.addEventListener('panels-minimize-all', minimizeAll);
+        return () => eventBus.removeEventListener('panels-minimize-all', minimizeAll);
+    }, []);
+
+    useEffect(() => {
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(storageKey, JSON.stringify({ ...position, minimized }));
     }, [position, minimized, storageKey]);
@@ -125,6 +132,7 @@ export function FloatingPanel({
                 }}
                 style={{
                     cursor: 'grab',
+                    userSelect: 'none',
                     padding: '9px 10px',
                     display: 'flex',
                     alignItems: 'center',
