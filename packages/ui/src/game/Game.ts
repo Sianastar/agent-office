@@ -4,7 +4,7 @@ import { OfficeState, AgentState } from './schema';
 import { eventBus } from '../events';
 
 // Named agents use the sheet matching their lowercased name; hired agents fall back to char_0.
-const SPRITE_KEYS = ['char_0', 'char_1', 'killjoy', 'raze', 'clove', 'jett'];
+const SPRITE_KEYS = ['char_0', 'char_1', 'killjoy', 'raze', 'clove', 'jett', 'boss'];
 
 let activeRoom: Colyseus.Room<OfficeState> | undefined;
 
@@ -489,8 +489,8 @@ export class OfficeScene extends Phaser.Scene {
                 fontSize: '9px', color: '#ffffff', backgroundColor: '#e58fb6', padding: { x: 4, y: 2 }
             }).setOrigin(0.5).setDepth(6).setVisible(false);
             const you = this.add.container(58, 118).setDepth(5).setVisible(false);
-            if (this.textures.exists('char_1')) {
-                you.add(this.add.sprite(0, -8, 'char_1', 14));
+            if (this.textures.exists('boss')) {
+                you.add(this.add.sprite(0, -8, 'boss', 14));
             }
             you.add(this.add.text(0, 10, 'You 👑', {
                 fontSize: '8px', color: '#ffffff', backgroundColor: '#c3a6eecc', padding: { x: 2, y: 1 }
