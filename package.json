@@ -22,5 +22,10 @@
     "@typescript-eslint/parser": "^7.1.1",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "prettier": "^3.2.5"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "msgpackr-extract": true,
+    "sqlite3": true
   }
 }
